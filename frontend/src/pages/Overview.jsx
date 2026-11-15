@@ -180,11 +180,24 @@ export default function Overview() {
                   {Array.isArray(insights.restock) && insights.restock.length === 0 ? <p className="text-xs text-gray-500">All stock levels are healthy.</p> : (
                     <ul className="space-y-2">
                       {(insights.restock || []).map((p, i) => {
-                        const name = typeof p === 'string' ? p : p.name;
+                        const name = typeof p === 'string' ? p : p.product || p.name;
+                        const suggestedQty = typeof p === 'string' ? '' : p.suggestedQty;
                         const stock = typeof p === 'string' ? '—' : p.stock;
                         const min = typeof p === 'string' ? '—' : p.minStock;
+                        const searchQ = suggestedQty ? `${suggestedQty} ${name}` : name;
                         return (
-                          <li key={i} className="text-xs flex justify-between"><span className="text-gray-700">{name}</span><span className="text-red-600 font-medium">{stock} / {min}</span></li>
+                          <li key={i} className="text-xs flex justify-between items-center">
+                            <span className="text-gray-700">{name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-red-600 font-medium">{stock} / {min}</span>
+                              <Link
+                                to={`/restock?q=${encodeURIComponent(searchQ)}`}
+                                className="text-[10px] text-[#0F3D2E] underline hover:text-[#0F3D2E]/80 px-2 py-0.5 rounded border border-[#0F3D2E]/20"
+                              >
+                                Find suppliers
+                              </Link>
+                            </div>
+                          </li>
                         );
                       })}
                     </ul>
@@ -197,10 +210,10 @@ export default function Overview() {
                   {Array.isArray(insights.expiring) && insights.expiring.length === 0 ? <p className="text-xs text-gray-500">Nothing expiring soon.</p> : (
                     <ul className="space-y-2">
                       {(insights.expiring || []).map((p, i) => {
-                        const name = typeof p === 'string' ? p : p.name;
-                        const days = typeof p === 'string' ? '—' : p.daysLeft;
+                        const name = typeof p === 'string' ? p : p.product;
+                        const expiryDate = typeof p === 'string' ? '—' : p.expiry_date;
                         return (
-                          <li key={i} className="text-xs flex justify-between"><span className="text-gray-700">{name}</span><span className="text-amber-600 font-medium">in {days} day{days === 1 ? '' : 's'}</span></li>
+                          <li key={i} className="text-xs flex justify-between"><span className="text-gray-700">{name}</span><span className="text-amber-600 font-medium">expires {expiryDate}</span></li>
                         );
                       })}
                     </ul>

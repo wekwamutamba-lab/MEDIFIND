@@ -15,6 +15,7 @@ import {
   Sliders,
   Search,
   Package,
+  Truck,
 } from 'lucide-react';
 
 const DEMO_KEY = 'mf_demo';
@@ -26,6 +27,7 @@ const MAIN_LINKS = [
   { name: 'Sales', path: '/sales', icon: Banknote },
   { name: 'Customers', path: '/customers', icon: Users },
   { name: 'Payments', path: '/payments', icon: CreditCard },
+  { name: 'Restock', path: '/restock', icon: Truck },
 ];
 
 const linkClass = (active) =>

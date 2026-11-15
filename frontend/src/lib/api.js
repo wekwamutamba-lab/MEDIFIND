@@ -6,7 +6,6 @@ const delay = () =>
 
 import {
   state,
-  findMedicineMock,
   OVERVIEW,
   SALES,
   INSIGHTS,
@@ -148,10 +147,6 @@ async function handleMock(pathname, options) {
   if (base === '/stats/sales' && method === 'GET') return SALES;
   if (base === '/insights' && method === 'GET') return INSIGHTS;
 
-  if (base === '/find' && method === 'GET') {
-    return findMedicineMock(params.q);
-  }
-
   throw new Error(`Not found: ${method} ${pathname}`);
 }
 
@@ -256,15 +251,30 @@ export async function getSales() {
   return request('/stats/sales');
 }
 
-export async function findMedicine(q) {
+export async function getInsights() {
+  return request('/insights', { method: 'POST', body: JSON.stringify({}) });
+}
+
+export async function findSuppliers(query) {
   return request('/find', {
     method: 'POST',
-    body: JSON.stringify({ message: q }),
+    body: JSON.stringify({ query }),
   });
 }
 
-export async function getInsights() {
-  return request('/insights', { method: 'POST' });
+export async function placeRestockOrder({ supplier_id, product_name, quantity }) {
+  return request('/restock', {
+    method: 'POST',
+    body: JSON.stringify({ supplier_id, product_name, quantity: Number(quantity) }),
+  });
+}
+
+export async function getRestockOrders() {
+  return request('/restock');
+}
+
+export async function receiveRestock(id) {
+  return request(`/restock/${id}/receive`, { method: 'PATCH' });
 }
 
 function rand(max) {

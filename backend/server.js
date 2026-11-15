@@ -7,6 +7,7 @@ import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
 import paymentsRouter from './routes/payments.js';
 import statsRouter from './routes/stats.js';
+import sourcingRouter from './routes/sourcing.js';
 import aiRouter from './routes/ai.js';
 
 const app = express();
@@ -23,8 +24,9 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/stats', statsRouter);
-app.use('/api', statsRouter);
-app.use('/api', aiRouter); // POST /api/find and POST /api/insights
+app.use('/api', statsRouter); // alias: /api/overview and /api/sales
+app.use('/api', sourcingRouter); // POST /api/find, /api/restock (supplier sourcing)
+app.use('/api', aiRouter); // POST /api/insights (and the old /find, which sourcing overrides)
 
 app.use((req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` }));
 
@@ -34,4 +36,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`MediFind API running on http://localhost:5000`.replace('5000', PORT)));
+app.listen(PORT, () => console.log(`MediFind API running on http://localhost:${PORT}`));
