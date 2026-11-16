@@ -1,51 +1,148 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
-const DEMO_KEY = 'mf_demo';
+const DEMO = { email: 'demo@medifind.app', password: 'Demo12345!' };
 
 export default function Login() {
   const navigate = useNavigate();
+  const [mode, setMode] = useState('login'); // 'login' or 'signup'
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
-  const continueAsDemo = () => {
-    localStorage.setItem(DEMO_KEY, 'true');
-    navigate('/overview', { replace: true });
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate('/overview', { replace: true });
+    });
+  }, [navigate]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        if (password.length < 6) throw new Error('Password must be at least 6 characters');
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: name } },
+        });
+        if (error) throw error;
+        if (data.session) navigate('/overview', { replace: true });
+        else setInfo('Account created. Check your email to confirm it, then log in.');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        navigate('/overview', { replace: true });
+      }
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const demo = async () => {
+    setError('');
+    setInfo('');
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword(DEMO);
+    setLoading(false);
+    if (error) setError('Demo account is not set up yet: ' + error.message);
+    else navigate('/overview', { replace: true });
+  };
+
+  const input =
+    'w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B] focus:border-[#D9F26B]';
+
   return (
-    <div className="min-h-screen bg-[#0F3D2E] flex items-center justify-center p-6 text-white">
-      <div className="w-full max-w-md">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-[#D9F26B] text-[#0F3D2E] flex items-center justify-center font-bold text-lg">
+    <div className="flex min-h-screen items-center justify-center bg-[#0F3D2E] p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#D9F26B] text-sm font-bold text-[#0F3D2E]">
             MF
           </div>
-          <span className="text-2xl font-bold tracking-tight">
-            Medi<span className="text-[#D9F26B]">Find</span>
-          </span>
+          <h1 className="text-2xl font-bold text-[#0F3D2E]">
+            Medi<span className="text-[#7da800]">Find</span>
+          </h1>
+          <p className="text-sm text-gray-500">
+            {mode === 'login' ? 'Log in to manage your pharmacy' : 'Create your pharmacist account'}
+          </p>
         </div>
 
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-8 backdrop-blur-md shadow-2xl">
-          <h2 className="text-2xl font-bold mb-2">Welcome back</h2>
-          <p className="text-white/70 text-sm mb-6">
-            Emergency-first medicine reservation and pharmacy stock management.
-          </p>
+        <form onSubmit={submit} className="space-y-3">
+          {mode === 'signup' && (
+            <input
+              className={input}
+              placeholder="Full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          )}
+          <input
+            className={input}
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className={input}
+            type="password"
+            placeholder="Password (min 6 characters)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          {error && (
+            <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+          )}
+          {info && (
+            <div className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700">{info}</div>
+          )}
 
           <button
-            type="button"
-            onClick={continueAsDemo}
-            className="w-full py-4 px-4 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#d4ec5f] transition disabled:opacity-60 disabled:cursor-not-allowed"
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-[#D9F26B] py-3 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:opacity-60"
           >
-            <ShieldCheck size={18} />
-            Continue as Demo Pharmacist
+            {loading ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
+        </form>
 
-          <p className="mt-5 text-xs text-white/60 text-center">
-            Demo mode — no credentials required. Data resets on refresh.
-          </p>
+        <button
+          onClick={() => {
+            setMode(mode === 'login' ? 'signup' : 'login');
+            setError('');
+            setInfo('');
+          }}
+          className="mt-4 w-full text-center text-sm text-gray-600 hover:text-[#0F3D2E]"
+        >
+          {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+        </button>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+          <div className="h-px flex-1 bg-gray-200" />
+          or
+          <div className="h-px flex-1 bg-gray-200" />
         </div>
 
-        <p className="mt-6 text-xs text-white/50 text-center">
-          MediFind &bull; Emergency medicine reservation
-        </p>
+        <button
+          onClick={demo}
+          disabled={loading}
+          className="w-full rounded-xl border border-[#0F3D2E] py-3 text-sm font-semibold text-[#0F3D2E] hover:bg-[#0F3D2E] hover:text-white disabled:opacity-60"
+        >
+          Continue as Demo Pharmacist
+        </button>
       </div>
     </div>
   );

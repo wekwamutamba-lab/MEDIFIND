@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
+import { supabase } from '../lib/supabase';
 import {
   Menu,
   X,
@@ -17,8 +18,6 @@ import {
   Package,
   Truck,
 } from 'lucide-react';
-
-const DEMO_KEY = 'mf_demo';
 
 const MAIN_LINKS = [
   { name: 'Overview', path: '/overview', icon: Home },
@@ -39,24 +38,40 @@ const linkClass = (active) =>
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [email, setEmail] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!localStorage.getItem(DEMO_KEY)) {
-      navigate('/login', { replace: true });
-    }
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        navigate('/login', { replace: true });
+      } else {
+        setEmail(data.session.user.email || '');
+        setReady(true);
+      }
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) navigate('/login', { replace: true });
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem(DEMO_KEY);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate('/login', { replace: true });
   };
 
   const closeMenu = () => setSidebarOpen(false);
 
+  if (!ready) {
+    return <div className="p-8 text-gray-500">Loading…</div>;
+  }
+
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
-      {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
@@ -64,14 +79,12 @@ export default function Layout() {
         />
       )}
 
-      {/* Sidebar (fixed, 240px wide) */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-60 bg-[#0F3D2E] text-white flex flex-col transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}
         aria-label="Main navigation"
       >
-        {/* Logo */}
         <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10 shrink-0">
           <div className="w-8 h-8 rounded-xl bg-[#D9F26B] text-[#0F3D2E] flex items-center justify-center font-bold text-xs">
             MF
@@ -81,7 +94,6 @@ export default function Layout() {
           </span>
         </div>
 
-        {/* Links */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {MAIN_LINKS.map((item) => (
             <NavLink
@@ -118,7 +130,6 @@ export default function Layout() {
           </NavLink>
         </nav>
 
-        {/* Bottom: upgrade card + logout */}
         <div className="shrink-0 p-3 space-y-2">
           <div className="bg-white/10 border border-white/10 rounded-xl p-3 text-white">
             <div className="text-xs font-semibold uppercase tracking-wider mb-1">
@@ -148,9 +159,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Everything to the right of the sidebar */}
       <div className="md:pl-60 min-w-0 flex flex-col min-h-screen">
-        {/* Top bar */}
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 px-4 md:px-6 py-3 bg-white/80 backdrop-blur-md border-b border-gray-200">
           <button
             onClick={() => setSidebarOpen((o) => !o)}
@@ -178,12 +187,11 @@ export default function Layout() {
             </button>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#D9F26B] text-[#0F3D2E] text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-[#0F3D2E]" />
-              Demo Pharmacist
+              {email || 'Pharmacist'}
             </div>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
           <ErrorBoundary fallback="The page crashed while rendering.">
             <Outlet />
@@ -193,6 +201,3 @@ export default function Layout() {
     </div>
   );
 }
-
-
-

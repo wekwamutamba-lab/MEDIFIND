@@ -9,6 +9,7 @@ import paymentsRouter from './routes/payments.js';
 import statsRouter from './routes/stats.js';
 import sourcingRouter from './routes/sourcing.js';
 import aiRouter from './routes/ai.js';
+import { requireAuth } from './lib/auth.js';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(cors({ origin: origins }));
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.use('/api', requireAuth);
 
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
