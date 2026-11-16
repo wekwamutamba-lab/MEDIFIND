@@ -182,8 +182,8 @@ export default function Layout() {
             <button
               onClick={() => {
                 closeMenu();
-                alert('Pro upgrade coming soon!');
-              }}
+                navigate('/upgrade');
+}}
               className="w-full py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] text-xs font-semibold hover:bg-[#cfe85c] transition"
             >
               Go Pro

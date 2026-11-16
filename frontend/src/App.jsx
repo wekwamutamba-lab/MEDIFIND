@@ -9,6 +9,7 @@ import Sales from './pages/Sales';
 import Customers from './pages/Customers';
 import Payments from './pages/Payments';
 import Settings from './pages/Settings';
+import Upgrade from './pages/Upgrade';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="customers" element={<Customers />} />
           <Route path="payments" element={<Payments />} />
           <Route path="restock" element={<Restock />} />
+          <Route path="/upgrade" element={<Upgrade />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
