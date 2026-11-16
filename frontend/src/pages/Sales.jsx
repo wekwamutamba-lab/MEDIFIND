@@ -1,184 +1,279 @@
-import { useEffect, useState } from 'react';
-import { getSales } from '../lib/api';
+import { useState, useEffect } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Cell,
 } from 'recharts';
+import { Banknote, TrendingUp, Wallet, ShoppingBag } from 'lucide-react';
+import { getSales } from '../lib/api';
 
-import StatCard from '../components/StatCard';
+const money = (n) =>
+  `$${Number(n || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
-export default function Sales() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const BLOCKS = [
+  { label: '12am-4am', from: 0, to: 3 },
+  { label: '4am-8am', from: 4, to: 7 },
+  { label: '8am-12pm', from: 8, to: 11 },
+  { label: '12pm-4pm', from: 12, to: 15 },
+  { label: '4pm-8pm', from: 16, to: 19 },
+  { label: '8pm-12am', from: 20, to: 23 },
+];
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await getSales();
-        if (mounted) setData(res);
-      } catch (err) { if (mounted) setError(err.message); }
-      if (mounted) setLoading(false);
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  if (error) return <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800 text-sm">Failed to load sales: {error}</div>;
-  if (loading || !data) return <div className="flex items-center justify-center h-64 text-gray-500">Loading sales analytics…</div>;
-
-  const {
-    totalRevenue, totalProfit, totalCost, avgOrderValue,
-    revenueByMonth, ordersByTime, topProducts,
-  } = data;
-
-  const monthly = (revenueByMonth || data.sales || []).map((m) => ({
-    month: m.month,
-    sales: Number(m.value ?? m.total ?? 0),
-  }));
-  const top = topProducts || [];
-
+function Stat({ icon: Icon, label, value, sub, dark }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
-        <div className="text-gray-500 text-sm">Revenue, profit and order performance.</div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Revenue" value={`$${Number(totalRevenue || 0).toFixed(2)}`} sublabel="All time" Icon={MoneyIcon} variant="green" />
-        <StatCard title="Total Profit" value={`$${Number(totalProfit || 0).toFixed(2)}`} sublabel="After cost of goods" Icon={ProfitIcon} />
-        <StatCard title="Total Cost" value={`$${Number(totalCost || 0).toFixed(2)}`} sublabel="Cost of goods sold" Icon={CostIcon} />
-        <StatCard title="Avg Order Value" value={`$${Number(avgOrderValue || 0).toFixed(2)}`} sublabel="Per order" Icon={AvgIcon} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Total Revenue</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthly}>
-                <CartesianGrid verticalDashArray="4" className="text-gray-200" />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickFontSize={12} tickFill="#6b7280" />
-                <YAxis tickLine={false} axisLine={false} tickFontSize={12} tickFill="#6b7280" />
-                <Tooltip />
-                <Bar dataKey="sales" fill="#0F3D2E" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+    <div
+      className={`rounded-2xl p-5 shadow-sm ${
+        dark ? 'bg-[#0F3D2E] text-white' : 'bg-white text-gray-900'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            dark ? 'bg-[#D9F26B] text-[#0F3D2E]' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          <Icon size={20} />
         </div>
-
-        <div className="rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Orders By Time</h2>
-          <HeatmapGrid data={ordersByTime || []} />
-        </div>
+        <div className={`text-sm ${dark ? 'text-white/70' : 'text-gray-500'}`}>{label}</div>
       </div>
-
-      <div className="rounded-xl border border-gray-200 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-900">Top Products</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-gray-500 text-xs font-medium">Product</th>
-                <th className="px-4 py-3 text-left text-gray-500 text-xs font-medium">Category</th>
-                <th className="px-4 py-3 text-left text-gray-500 text-xs font-medium">Revenue</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {top.length === 0 ? (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-500">No top products found.</td></tr>
-              ) : (
-                top.map((p) => (
-                  <tr key={p.name} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-gray-700">{p.name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-700">{p.category || '—'}</td>
-                    <td className="px-4 py-3 text-gray-700 font-medium">$${Number(p.revenue || 0).toFixed(2)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div className="mt-4 break-words text-2xl font-bold tracking-tight xl:text-3xl">{value}</div>
+      <div className={`mt-1 text-xs ${dark ? 'text-[#D9F26B]' : 'text-gray-400'}`}>{sub}</div>
     </div>
   );
 }
 
-function MoneyIcon({ size = 20 }) {
-  return (
-    <svg className="w-5 h-5" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1" y="11" width="22" height="12" rx="2" ry="2" />
-      <path d="M17 11V5a4 4 0 0 0-4-4H5" />
-    </svg>
-  );
-}
-function ProfitIcon({ size = 20 }) {
-  return (
-    <svg className="w-5 h-5" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-function CostIcon({ size = 20 }) {
-  return (
-    <svg className="w-5 h-5" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="8.5" cy="7" r="4" />
-    </svg>
-  );
-}
-function AvgIcon({ size = 20 }) {
-  return (
-    <svg className="w-5 h-5" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
-
-function HeatmapGrid({ data }) {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const hours = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
-  const map = {};
-  (data || []).forEach((d) => {
-    map[`${d.day}|${d.hour}`] = Number(d.count ?? d.value ?? 0);
+// Turns [{day, hour, count}] into a grid[day][block] of order counts
+function buildGrid(rows) {
+  const grid = {};
+  DAYS.forEach((d) => {
+    grid[d] = BLOCKS.map(() => 0);
   });
-  const vals = Object.values(map);
-  const max = Math.max(1, ...vals);
+  (rows ?? []).forEach((r) => {
+    const day = DAYS.includes(r.day) ? r.day : null;
+    const hour = Number(r.hour);
+    const b = BLOCKS.findIndex((x) => hour >= x.from && hour <= x.to);
+    if (day && b >= 0) grid[day][b] += Number(r.count) || 0;
+  });
+  return grid;
+}
+
+export default function Sales() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setData(await getSales());
+    } catch (e) {
+      setError(e.message || 'Failed to load sales');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const months = data?.revenueByMonth ?? [];
+  const products = data?.topProducts ?? [];
+  const grid = buildGrid(data?.ordersByTime);
+  const maxCell = Math.max(1, ...DAYS.flatMap((d) => grid[d]));
+  const maxMonth = Math.max(0, ...months.map((m) => Number(m.value) || 0));
+  const maxProd = Math.max(1, ...products.map((p) => Number(p.revenue) || 0));
+  const hasTimeData = (data?.ordersByTime ?? []).length > 0;
+
+  // Busiest slot, for a plain-English takeaway
+  let busiest = null;
+  DAYS.forEach((d) =>
+    grid[d].forEach((c, i) => {
+      if (c > 0 && (!busiest || c > busiest.c)) busiest = { d, label: BLOCKS[i].label, c };
+    })
+  );
 
   return (
-    <div className="h-80 flex flex-col">
-      <div className="flex items-end gap-1 mb-3 px-1">
-        {hours.map((h) => (
-          <div key={h} className="w-[34px] text-[10px] text-gray-400 text-center font-medium">{h}</div>
-        ))}
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
+        <p className="text-sm text-gray-500">Revenue, profit and when your customers buy</p>
       </div>
-      <div className="flex items-center gap-1 px-1">
-        <div className="w-[30px] text-[10px] text-gray-400 text-right font-medium mb-1">Day</div>
-        <div className="flex flex-col items-center gap-1">
-          {days.map((day) => (
-            <div key={day} className="flex items-center gap-1">
-              <div className="w-[30px] text-[10px] text-gray-400 text-right font-medium">{day}</div>
-              <div className="flex gap-1">
-                {hours.map((h) => {
-                  const v = map[`${day}|${h}`] || 0;
-                  const opacity = 0.15 + 0.85 * (v / max);
-                  return (
-                    <div
-                      key={`${day}-${h}`}
-                      className="w-[26px] h-[26px] rounded bg-[#0F3D2E] opacity-50"
-                      style={{ opacity }}
-                      title={`${day} ${h}: ${v} order${v === 1 ? '' : 's'}`}
+
+      {error && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{error}</span>
+          <button
+            onClick={load}
+            className="rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold text-white"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          dark
+          icon={Banknote}
+          label="Total Revenue"
+          value={loading ? '…' : money(data?.totalRevenue)}
+          sub="Completed and pending orders"
+        />
+        <Stat
+          icon={TrendingUp}
+          label="Total Profit"
+          value={loading ? '…' : money(data?.totalProfit)}
+          sub="Estimated at 30% margin"
+        />
+        <Stat
+          icon={Wallet}
+          label="Total Cost"
+          value={loading ? '…' : money(data?.totalCost)}
+          sub="Revenue minus profit"
+        />
+        <Stat
+          icon={ShoppingBag}
+          label="Average Order"
+          value={loading ? '…' : money(data?.avgOrderValue)}
+          sub="Per order"
+        />
+      </div>
+
+      {/* Revenue by month */}
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="mb-4 font-semibold text-gray-900">Revenue by month</div>
+        {months.length === 0 ? (
+          <div className="flex h-[280px] items-center justify-center text-sm text-gray-400">
+            {loading ? 'Loading…' : 'No sales data yet'}
+          </div>
+        ) : (
+          <div style={{ width: '100%', height: 280 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={months} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={12} />
+                <YAxis axisLine={false} tickLine={false} fontSize={12} />
+                <Tooltip formatter={(v) => money(v)} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {months.map((m, i) => (
+                    <Cell
+                      key={i}
+                      fill={Number(m.value) === maxMonth ? '#D9F26B' : '#0F3D2E'}
+                      stroke={Number(m.value) === maxMonth ? '#0F3D2E' : 'none'}
                     />
-                  );
-                })}
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        {/* Orders by time heatmap */}
+        <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-3">
+          <div className="mb-1 font-semibold text-gray-900">Orders by time</div>
+          <p className="mb-4 text-xs text-gray-500">
+            Darker squares mean more orders.
+            {busiest &&
+              ` Busiest time: ${busiest.d} ${busiest.label} (${busiest.c} orders).`}
+          </p>
+
+          {!hasTimeData ? (
+            <div className="flex h-[240px] items-center justify-center text-sm text-gray-400">
+              {loading ? 'Loading…' : 'No order times yet'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="min-w-[460px]">
+                <div
+                  className="mb-1 grid gap-1"
+                  style={{ gridTemplateColumns: '44px repeat(6, minmax(0, 1fr))' }}
+                >
+                  <div />
+                  {BLOCKS.map((b) => (
+                    <div key={b.label} className="text-center text-[10px] text-gray-500">
+                      {b.label}
+                    </div>
+                  ))}
+                </div>
+
+                {DAYS.map((d) => (
+                  <div
+                    key={d}
+                    className="mb-1 grid gap-1"
+                    style={{ gridTemplateColumns: '44px repeat(6, minmax(0, 1fr))' }}
+                  >
+                    <div className="flex items-center text-xs font-medium text-gray-600">{d}</div>
+                    {grid[d].map((c, i) => {
+                      const level = c / maxCell;
+                      return (
+                        <div
+                          key={i}
+                          title={`${d} ${BLOCKS[i].label}: ${c} orders`}
+                          className="flex h-9 items-center justify-center rounded-md text-xs font-semibold"
+                          style={{
+                            backgroundColor:
+                              c === 0 ? 'rgba(15,61,46,0.06)' : `rgba(15,61,46,${0.15 + 0.85 * level})`,
+                            color: level > 0.45 ? '#ffffff' : '#0F3D2E',
+                          }}
+                        >
+                          {c > 0 ? c : ''}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
+          <p className="mt-3 text-[11px] text-gray-400">Times follow the server clock (UTC).</p>
+        </div>
+
+        {/* Top products */}
+        <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="mb-4 font-semibold text-gray-900">Top products by revenue</div>
+          {products.length === 0 ? (
+            <div className="flex h-[240px] items-center justify-center text-sm text-gray-400">
+              {loading ? 'Loading…' : 'No products yet'}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {products.map((p, i) => (
+                <div key={p.name}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-gray-800">
+                        {i + 1}. {p.name}
+                      </div>
+                      <div className="truncate text-xs text-gray-500">{p.category}</div>
+                    </div>
+                    <div className="shrink-0 text-sm font-semibold text-gray-800">
+                      {money(p.revenue)}
+                    </div>
+                  </div>
+                  <div className="mt-1.5 h-2 rounded-full bg-gray-200">
+                    <div
+                      className="h-2 rounded-full bg-[#0F3D2E]"
+                      style={{ width: `${(Number(p.revenue) / maxProd) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

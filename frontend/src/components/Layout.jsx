@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
 import { supabase } from '../lib/supabase';
@@ -47,12 +47,13 @@ export default function Layout() {
   const [bellOpen, setBellOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate).current;
 
   // Login check
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
-        navigate('/login', { replace: true });
+        navigateRef('/login', { replace: true });
       } else {
         const u = data.session.user;
         setDisplayName(u.user_metadata?.full_name || u.email || '');
@@ -61,11 +62,11 @@ export default function Layout() {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) navigate('/login', { replace: true });
+      if (!session) navigateRef('/login', { replace: true });
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigateRef]);
 
   // Light / dark mode
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function Layout() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/login', { replace: true });
+    navigateRef('/login', { replace: true });
   };
 
   const closeMenu = () => setSidebarOpen(false);
@@ -182,7 +183,7 @@ export default function Layout() {
             <button
               onClick={() => {
                 closeMenu();
-                navigate('/upgrade');
+                navigateRef('/upgrade');
 }}
               className="w-full py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] text-xs font-semibold hover:bg-[#cfe85c] transition"
             >
@@ -265,7 +266,7 @@ export default function Layout() {
                         key={n.id}
                         onClick={() => {
                           setBellOpen(false);
-                          navigate(n.to);
+                          navigateRef(n.to);
                         }}
                         className="block w-full rounded-xl px-3 py-2 text-left hover:bg-gray-50"
                       >
