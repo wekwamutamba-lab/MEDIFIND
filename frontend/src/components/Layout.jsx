@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
 import { supabase } from '../lib/supabase';
 import { getOverview } from '../lib/api';
+import { globalSearch } from '../lib/extra';
 import {
   Menu,
   X,
@@ -18,6 +19,7 @@ import {
   Search,
   Package,
   Truck,
+  Building2,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -30,6 +32,7 @@ const MAIN_LINKS = [
   { name: 'Customers', path: '/customers', icon: Users },
   { name: 'Payments', path: '/payments', icon: CreditCard },
   { name: 'Restock', path: '/restock', icon: Truck },
+  { name: 'Suppliers', path: '/suppliers', icon: Building2 },
 ];
 
 const linkClass = (active) =>
@@ -46,14 +49,19 @@ export default function Layout() {
   const [dark, setDark] = useState(() => localStorage.getItem('mf_theme') === 'dark');
   const [bellOpen, setBellOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
+
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
   const navigate = useNavigate();
-  const navigateRef = useRef(navigate).current;
 
   // Login check
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
-        navigateRef('/login', { replace: true });
+        navigate('/login', { replace: true });
       } else {
         const u = data.session.user;
         setDisplayName(u.user_metadata?.full_name || u.email || '');
@@ -62,11 +70,11 @@ export default function Layout() {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) navigateRef('/login', { replace: true });
+      if (!session) navigate('/login', { replace: true });
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [navigateRef]);
+  }, [navigate]);
 
   // Light / dark mode
   useEffect(() => {
@@ -74,7 +82,7 @@ export default function Layout() {
     localStorage.setItem('mf_theme', dark ? 'dark' : 'light');
   }, [dark]);
 
-  // Notifications (built from the overview data)
+  // Notifications
   useEffect(() => {
     if (!ready) return;
     getOverview()
@@ -104,9 +112,36 @@ export default function Layout() {
       .catch(() => {});
   }, [ready]);
 
+  // Live search (waits 300ms after you stop typing)
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults(null);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        setResults(await globalSearch(q));
+      } catch {
+        setResults({ products: [], customers: [], orders: [] });
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const go = (path) => {
+    setSearchOpen(false);
+    setQuery('');
+    setResults(null);
+    navigate(path);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigateRef('/login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const closeMenu = () => setSidebarOpen(false);
@@ -114,6 +149,11 @@ export default function Layout() {
   if (!ready) {
     return <div className="p-8 text-gray-500">Loading…</div>;
   }
+
+  const total =
+    (results?.products?.length ?? 0) +
+    (results?.customers?.length ?? 0) +
+    (results?.orders?.length ?? 0);
 
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
@@ -151,16 +191,14 @@ export default function Layout() {
 
           <div className="my-3 border-t border-white/10" />
 
-          <button
-            onClick={() => {
-              closeMenu();
-              alert('Help & Support: support@medifind.example');
-            }}
-            className={linkClass(false)}
+          <NavLink
+            to="/help"
+            onClick={closeMenu}
+            className={({ isActive }) => linkClass(isActive)}
           >
             <HelpCircle size={18} />
             Help &amp; Support
-          </button>
+          </NavLink>
 
           <NavLink
             to="/settings"
@@ -183,8 +221,8 @@ export default function Layout() {
             <button
               onClick={() => {
                 closeMenu();
-                navigateRef('/upgrade');
-}}
+                navigate('/upgrade');
+              }}
               className="w-full py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] text-xs font-semibold hover:bg-[#cfe85c] transition"
             >
               Go Pro
@@ -211,20 +249,104 @@ export default function Layout() {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
+          {/* Search */}
           <div className="relative hidden md:block w-full max-w-md">
             <Search
               size={16}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
             <input
-              type="search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
               placeholder="Search products, orders, customers…"
               className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B] focus:border-[#D9F26B]"
             />
+
+            {searchOpen && query.trim().length >= 2 && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setSearchOpen(false)} />
+                <div className="absolute left-0 right-0 z-40 mt-2 max-h-96 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                  {searching && (
+                    <div className="px-3 py-3 text-sm text-gray-400">Searching…</div>
+                  )}
+                  {!searching && results && total === 0 && (
+                    <div className="px-3 py-3 text-sm text-gray-500">
+                      No results for "{query.trim()}"
+                    </div>
+                  )}
+
+                  {results?.products?.length > 0 && (
+                    <div>
+                      <div className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Products
+                      </div>
+                      {results.products.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => go('/products')}
+                          className="block w-full rounded-xl px-3 py-2 text-left hover:bg-gray-50"
+                        >
+                          <div className="text-sm font-semibold text-gray-800">{p.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {p.category} · {p.quantity} in stock · {p.status}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {results?.customers?.length > 0 && (
+                    <div>
+                      <div className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Customers
+                      </div>
+                      {results.customers.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => go('/customers')}
+                          className="block w-full rounded-xl px-3 py-2 text-left hover:bg-gray-50"
+                        >
+                          <div className="text-sm font-semibold text-gray-800">{c.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {c.email} · {c.total_orders} orders
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {results?.orders?.length > 0 && (
+                    <div>
+                      <div className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Orders
+                      </div>
+                      {results.orders.map((o) => (
+                        <button
+                          key={o.id}
+                          onClick={() => go('/orders')}
+                          className="block w-full rounded-xl px-3 py-2 text-left hover:bg-gray-50"
+                        >
+                          <div className="text-sm font-semibold text-gray-800">
+                            {o.customer_name} · {o.product_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {o.quantity} units · ${Number(o.total || 0).toFixed(2)} ·{' '}
+                            {o.order_status}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-1 ml-auto">
-            {/* Light / dark toggle */}
             <button
               onClick={() => setDark((d) => !d)}
               className="p-2 text-gray-500 hover:text-gray-800"
@@ -234,7 +356,6 @@ export default function Layout() {
               {dark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
-            {/* Notifications bell */}
             <div className="relative">
               <button
                 onClick={() => setBellOpen((o) => !o)}
@@ -266,7 +387,7 @@ export default function Layout() {
                         key={n.id}
                         onClick={() => {
                           setBellOpen(false);
-                          navigateRef(n.to);
+                          navigate(n.to);
                         }}
                         className="block w-full rounded-xl px-3 py-2 text-left hover:bg-gray-50"
                       >

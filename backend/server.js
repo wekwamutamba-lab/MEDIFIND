@@ -2,14 +2,16 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { requireAuth } from './lib/auth.js';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
 import paymentsRouter from './routes/payments.js';
 import statsRouter from './routes/stats.js';
 import sourcingRouter from './routes/sourcing.js';
+import suppliersRouter from './routes/suppliers.js';
+import supportRouter from './routes/support.js';
 import aiRouter from './routes/ai.js';
-import { requireAuth } from './lib/auth.js';
 
 const app = express();
 
@@ -19,16 +21,20 @@ app.use(cors({ origin: origins }));
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Everything below needs a valid login
 app.use('/api', requireAuth);
 
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/suppliers', suppliersRouter);
+app.use('/api/support', supportRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api', statsRouter); // alias: /api/overview and /api/sales
-app.use('/api', sourcingRouter); // POST /api/find, /api/restock (supplier sourcing)
-app.use('/api', aiRouter); // POST /api/insights (and the old /find, which sourcing overrides)
+app.use('/api', sourcingRouter); // POST /api/find, /api/restock
+app.use('/api', aiRouter); // POST /api/insights
 
 app.use((req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` }));
 
