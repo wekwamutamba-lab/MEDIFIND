@@ -13,19 +13,31 @@ router.get('/overview', async (req, res) => {
     const orders = await loadOrders();
     const valid = orders.filter((o) => o.order_status !== 'Cancelled');
     const revenue = valid.reduce((s, o) => s + o.total, 0);
-    const { count } = await supabase.from('customers').select('*', { count: 'exact', head: true });
+
+    const { count } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: lowStock } = await supabase
+      .from('vw_products_with_status')
+      .select('*', { count: 'exact', head: true })
+      .neq('status', 'In Stock');
 
     const byProduct = new Map();
-    for (const o of valid) byProduct.set(o.product_name, (byProduct.get(o.product_name) || 0) + o.quantity);
+    for (const o of valid) {
+      byProduct.set(o.product_name, (byProduct.get(o.product_name) || 0) + o.quantity);
+    }
     const topMedicines = [...byProduct.entries()]
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
     res.json({
+      totalRevenue: round2(revenue),
       totalProfit: round2(revenue * 0.3),
       totalCustomers: count || 0,
       totalOrders: orders.length,
+      lowStock: lowStock || 0,
       salesByMonth: byMonth(orders),
       topMedicines,
       latestOrders: orders.slice(0, 5),
@@ -57,7 +69,11 @@ router.get('/sales', async (req, res) => {
 
     const prod = new Map();
     for (const o of valid) {
-      const p = prod.get(o.product_name) || { name: o.product_name, category: o.category, revenue: 0 };
+      const p = prod.get(o.product_name) || {
+        name: o.product_name,
+        category: o.category,
+        revenue: 0,
+      };
       p.revenue += o.total;
       prod.set(o.product_name, p);
     }
