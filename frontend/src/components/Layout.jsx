@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
 import { supabase } from '../lib/supabase';
+import { getOverview } from '../lib/api';
 import {
   Menu,
   X,
@@ -17,6 +18,8 @@ import {
   Search,
   Package,
   Truck,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const MAIN_LINKS = [
@@ -39,15 +42,20 @@ const linkClass = (active) =>
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ready, setReady] = useState(false);
-  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [dark, setDark] = useState(() => localStorage.getItem('mf_theme') === 'dark');
+  const [bellOpen, setBellOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
   const navigate = useNavigate();
 
+  // Login check
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
         navigate('/login', { replace: true });
       } else {
-        setEmail(data.session.user.email || '');
+        const u = data.session.user;
+        setDisplayName(u.user_metadata?.full_name || u.email || '');
         setReady(true);
       }
     });
@@ -58,6 +66,42 @@ export default function Layout() {
 
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
+
+  // Light / dark mode
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('mf_theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  // Notifications (built from the overview data)
+  useEffect(() => {
+    if (!ready) return;
+    getOverview()
+      .then((res) => {
+        const list = [];
+        if ((res?.lowStock ?? 0) > 0) {
+          list.push({
+            id: 'low',
+            title: `${res.lowStock} products are low or out of stock`,
+            text: 'Open Restock to find suppliers',
+            to: '/restock',
+          });
+        }
+        const pending = (res?.latestOrders ?? []).filter(
+          (o) => o.order_status === 'Pending'
+        ).length;
+        if (pending > 0) {
+          list.push({
+            id: 'pending',
+            title: `${pending} recent orders are pending`,
+            text: 'Review them on the Orders page',
+            to: '/orders',
+          });
+        }
+        setNotifs(list);
+      })
+      .catch(() => {});
+  }, [ready]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -73,10 +117,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
-          onClick={closeMenu}
-        />
+        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={closeMenu} />
       )}
 
       <aside
@@ -181,13 +222,65 @@ export default function Layout() {
             />
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
-            <button className="p-2 text-gray-500 hover:text-gray-800">
-              <Bell size={20} />
+          <div className="flex items-center gap-1 ml-auto">
+            {/* Light / dark toggle */}
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="p-2 text-gray-500 hover:text-gray-800"
+              aria-label="Toggle dark mode"
+              title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {dark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#D9F26B] text-[#0F3D2E] text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-[#0F3D2E]" />
-              {email || 'Pharmacist'}
+
+            {/* Notifications bell */}
+            <div className="relative">
+              <button
+                onClick={() => setBellOpen((o) => !o)}
+                className="relative p-2 text-gray-500 hover:text-gray-800"
+                aria-label="Notifications"
+              >
+                <Bell size={20} />
+                {notifs.length > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {notifs.length}
+                  </span>
+                )}
+              </button>
+
+              {bellOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setBellOpen(false)} />
+                  <div className="absolute right-0 z-40 mt-2 w-72 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                    <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Notifications
+                    </div>
+                    {notifs.length === 0 && (
+                      <div className="px-3 py-4 text-sm text-gray-500">
+                        You are all caught up.
+                      </div>
+                    )}
+                    {notifs.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => {
+                          setBellOpen(false);
+                          navigate(n.to);
+                        }}
+                        className="block w-full rounded-xl px-3 py-2 text-left hover:bg-gray-50"
+                      >
+                        <div className="text-sm font-semibold text-gray-800">{n.title}</div>
+                        <div className="text-xs text-gray-500">{n.text}</div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="ml-1 flex max-w-[200px] items-center gap-2 rounded-full bg-[#D9F26B] px-3 py-1.5 text-xs font-semibold text-[#0F3D2E]">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[#0F3D2E]" />
+              <span className="truncate">{displayName || 'Pharmacist'}</span>
             </div>
           </div>
         </header>
