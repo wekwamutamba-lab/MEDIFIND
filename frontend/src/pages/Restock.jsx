@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, X, MessageCircle, Mail, Lock } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import {
   findSuppliers,
   placeRestockOrder,
@@ -16,8 +17,19 @@ const urgencyStyle = {
   low: 'bg-green-100 text-green-700',
 };
 
+// Turns 0771234567 or +263 77 123 4567 into 263771234567 for wa.me links
+const waNumber = (raw) => {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (d.startsWith('0')) d = '263' + d.slice(1);
+  return d;
+};
+
 export default function Restock() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
+
+  const [isPro, setIsPro] = useState(false);
+  const [sender, setSender] = useState('a MediFind pharmacy');
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,6 +48,15 @@ export default function Restock() {
   const [qty, setQty] = useState(1);
   const [ordering, setOrdering] = useState(false);
   const [message, setMessage] = useState('');
+  const [lastOrder, setLastOrder] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data?.user;
+      setIsPro(u?.user_metadata?.plan === 'pro');
+      setSender(u?.user_metadata?.full_name || u?.email || 'a MediFind pharmacy');
+    });
+  }, []);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -57,6 +78,7 @@ export default function Restock() {
     setLoading(true);
     setError('');
     setMessage('');
+    setLastOrder(null);
     try {
       const res = await findSuppliers(q);
       setParsed(res?.parsed ?? {});
@@ -89,13 +111,19 @@ export default function Restock() {
     if (!selected) return;
     setOrdering(true);
     setError('');
+    const quantity = Number(qty) || 1;
     try {
       await placeRestockOrder({
         supplier_id: selected.supplier_id,
         product_name: selected.product_name,
-        quantity: Number(qty) || 1,
+        quantity,
       });
-      setMessage(`Order placed with ${selected.supplier} for ${qty} x ${selected.product_name}.`);
+      setLastOrder({
+        ...selected,
+        qty: quantity,
+        total: quantity * Number(selected.unit_price || 0),
+      });
+      setMessage('');
       setSelected(null);
       await loadOrders();
     } catch (e) {
@@ -116,13 +144,16 @@ export default function Restock() {
     }
   };
 
+  const buildMessage = (o) =>
+    `Hello ${o.supplier},\n\nThis is ${sender}. I would like to place a restock order through MediFind:\n\n- Medicine: ${o.product_name}\n- Quantity: ${o.qty}\n- Unit price: ${money(o.unit_price)}\n- Estimated total: ${money(o.total)}\n\nPlease confirm availability and delivery time.\n\nThank you.`;
+
+  const waTarget = lastOrder ? waNumber(lastOrder.whatsapp || lastOrder.phone) : '';
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#0F3D2E]">Source Stock</h1>
-        <p className="text-sm text-gray-500">
-          Tell Pill what you need and compare suppliers
-        </p>
+        <p className="text-sm text-gray-500">Tell Pill what you need and compare suppliers</p>
       </div>
 
       {/* Search box */}
@@ -169,6 +200,80 @@ export default function Restock() {
         </div>
       )}
 
+      {/* After an order: contact the supplier */}
+      {lastOrder && (
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
+          <div className="font-semibold text-green-900">
+            Order recorded: {lastOrder.qty} x {lastOrder.product_name} from {lastOrder.supplier}
+          </div>
+          <p className="mt-1 text-sm text-green-800">
+            Estimated total {money(lastOrder.total)}. Now let the supplier know.
+          </p>
+
+          {isPro ? (
+            <div className="mt-4 space-y-3">
+              <textarea
+                readOnly
+                rows={8}
+                value={buildMessage(lastOrder)}
+                className="w-full rounded-xl border border-green-200 bg-white p-3 text-xs text-gray-700"
+              />
+              <div className="flex flex-wrap gap-2">
+                {waTarget && (
+                  <a
+                    href={`https://wa.me/${waTarget}?text=${encodeURIComponent(
+                      buildMessage(lastOrder)
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                  >
+                    <MessageCircle size={16} /> Send on WhatsApp
+                  </a>
+                )}
+                {lastOrder.email && (
+                  <a
+                    href={`mailto:${lastOrder.email}?subject=${encodeURIComponent(
+                      `Restock order: ${lastOrder.qty} x ${lastOrder.product_name}`
+                    )}&body=${encodeURIComponent(buildMessage(lastOrder))}`}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#145540]"
+                  >
+                    <Mail size={16} /> Send by email
+                  </a>
+                )}
+                {!waTarget && !lastOrder.email && (
+                  <p className="text-sm text-gray-600">
+                    This supplier has no WhatsApp number or email yet. Add one on the Suppliers
+                    page.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4">
+              <div className="flex items-center gap-3 text-sm text-gray-700">
+                <Lock size={18} className="shrink-0 text-gray-400" />
+                Sending the order to the supplier with one tap (WhatsApp or email) is a Pro
+                feature.
+              </div>
+              <button
+                onClick={() => navigate('/upgrade')}
+                className="rounded-xl bg-[#D9F26B] px-4 py-2 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c]"
+              >
+                Upgrade to Pro
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setLastOrder(null)}
+            className="mt-3 text-xs text-green-800 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* AI understood chips */}
       {searched && !loading && (
         <div className="flex flex-wrap items-center gap-2">
@@ -197,7 +302,6 @@ export default function Restock() {
         </div>
       )}
 
-      {/* Results */}
       {loading && (
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -397,8 +501,7 @@ export default function Restock() {
               className="mb-3 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B]"
             />
             <div className="mb-4 text-sm">
-              Total:{' '}
-              <b>{money((Number(qty) || 0) * Number(selected.unit_price || 0))}</b>
+              Total: <b>{money((Number(qty) || 0) * Number(selected.unit_price || 0))}</b>
             </div>
             <div className="flex gap-2">
               <button
