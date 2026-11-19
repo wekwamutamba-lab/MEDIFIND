@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as sb from '../lib/supabase.js';
+import { adjustStock, exactIlike } from '../lib/stock.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -177,29 +178,45 @@ router.patch('/restock/:id/receive', async (req, res) => {
     if (error || !order) return res.status(404).json({ error: 'Restock order not found' });
     if (order.status === 'Received') return res.json(order);
 
-    const { data: prods } = await supabase
-      .from('products')
-      .select('id, quantity')
-      .ilike('name', order.product_name)
-      .order('quantity', { ascending: true })
-      .limit(1);
-    if (prods?.length) {
-      await supabase
-        .from('products')
-        .update({ quantity: (prods[0].quantity || 0) + order.quantity })
-        .eq('id', prods[0].id);
+    // Find the inventory product to add the stock to (an explicit product_id wins).
+    // If several products share the name, the one with the least stock gets it.
+    let q = supabase.from('products').select('id, quantity');
+    q = req.body?.product_id
+      ? q.eq('id', req.body.product_id)
+      : q.ilike('name', exactIlike(order.product_name)).order('quantity', { ascending: true });
+    const { data: prods, error: pe } = await q.limit(1);
+    if (pe) throw pe;
+    if (!prods?.length) {
+      return res.status(409).json({
+        error: `"${order.product_name}" is not in your inventory yet. Add it on the Products page, then mark this order received.`,
+      });
     }
 
-    const { data: updated, error: e2 } = await supabase
+    // Claim the order first: only one request can move it from its current status to
+    // Received, so a double click cannot add the stock twice
+    const { data: claimed, error: e2 } = await supabase
       .from('restock_orders')
       .update({ status: 'Received' })
       .eq('id', order.id)
-      .select()
-      .single();
+      .eq('status', order.status)
+      .select();
     if (e2) throw e2;
-    res.json(updated);
+    if (!claimed?.length) {
+      const { data: current } = await supabase
+        .from('restock_orders').select('*').eq('id', order.id).single();
+      return res.json(current || order);
+    }
+
+    try {
+      await adjustStock(prods[0].id, Number(order.quantity) || 0);
+    } catch (err) {
+      // Stock was not added, so put the order back to its previous status
+      await supabase.from('restock_orders').update({ status: order.status }).eq('id', order.id);
+      throw err;
+    }
+    res.json(claimed[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
