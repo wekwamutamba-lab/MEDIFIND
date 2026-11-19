@@ -11,6 +11,7 @@ import statsRouter from './routes/stats.js';
 import sourcingRouter from './routes/sourcing.js';
 import suppliersRouter from './routes/suppliers.js';
 import supportRouter from './routes/support.js';
+import posRouter from './routes/pos.js';
 import aiRouter from './routes/ai.js';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/customers', customersRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/support', supportRouter);
+app.use('/api/pos', posRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api', statsRouter); // alias: /api/overview and /api/sales
 app.use('/api', sourcingRouter); // POST /api/find, /api/restock
