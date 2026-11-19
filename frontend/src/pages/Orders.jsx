@@ -263,37 +263,42 @@ export default function Orders() {
             <label className="text-xs font-semibold text-gray-600">Order</label>
             <p className="text-sm text-gray-900 font-medium">{editOrder?.id ?? '—'}</p>
           </div>
-          {/* Only the order status can be changed here; the other details are shown for reference */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-600">Customer</label>
-              <p className="text-sm text-gray-900">{form.customerName || '—'}</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-600">Medicine</label>
-              <p className="text-sm text-gray-900">{form.medicine || '—'}</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-600">Quantity</label>
-              <p className="text-sm text-gray-900">{form.quantity}</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-600">Total</label>
-              <p className="text-sm text-gray-900">${Number(form.total || 0).toFixed(2)}</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-600">Payment</label>
-              <p className="text-sm text-gray-900">{form.paymentStatus}</p>
-            </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-600">Customer</label>
+            <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} required />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-600">Status</label>
-            <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-            <p className="text-xs text-gray-500">Marking an order Completed also marks it as paid.</p>
+            <label className="text-xs font-semibold text-gray-600">Medicine</label>
+            <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-600">Quantity</label>
+              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-600">Total ($)</label>
+              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.total} onChange={(e) => setForm({ ...form, total: e.target.value })} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-600">Status</label>
+              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-600">Payment status</label>
+              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
+                <option value="Unpaid">Unpaid</option>
+                <option value="Paid">Paid</option>
+                <option value="Partial">Partial</option>
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setStatusOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>

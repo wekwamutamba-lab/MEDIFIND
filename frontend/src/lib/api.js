@@ -231,7 +231,7 @@ export async function createOrder(order) {
 export async function updateOrder(id, updates) {
   return request(`/orders/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ order_status: updates.status }),
+    body: JSON.stringify({ status: updates.status }),
   });
 }
 

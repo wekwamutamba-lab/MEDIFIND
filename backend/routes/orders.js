@@ -90,7 +90,7 @@ router.post('/', async (req, res) => {
       .from('orders')
       .insert({
         customer_id: customerId,
-        product_id: product.id,
+        product_id,
         quantity,
         total,
         order_date: new Date().toISOString(),
@@ -100,14 +100,11 @@ router.post('/', async (req, res) => {
       .select('id').single();
     if (oe) throw oe;
 
-    const { error: se } = await supabase
-      .from('products').update({ quantity: product.quantity - quantity }).eq('id', product.id);
-    if (se) throw se;
-    const { error: pye } = await supabase.from('payments').insert({
+    await supabase.from('products').update({ quantity: product.quantity - quantity }).eq('id', product_id);
+    await supabase.from('payments').insert({
       order_id: order.id, amount: total, status: 'Pending', method: 'Cash',
       payment_date: new Date().toISOString(),
     });
-    if (pye) throw pye;
 
     const all = await loadOrders();
     res.status(201).json(all.find((o) => o.id === order.id));
@@ -119,12 +116,7 @@ router.post('/', async (req, res) => {
 // PATCH /api/orders/:id  { order_status }
 router.patch('/:id', async (req, res) => {
   try {
-    const raw = String(req.body?.order_status ?? req.body?.status ?? '').trim().toLowerCase();
-    const KNOWN = ['pending', 'completed', 'complete', 'delivered', 'done', 'cancelled', 'canceled'];
-    if (!KNOWN.includes(raw)) {
-      return res.status(400).json({ error: 'order_status must be Pending, Completed or Cancelled' });
-    }
-    const status = normOrderStatus(raw);
+    const status = normOrderStatus(req.body?.order_status);
     const updates = { status };
     if (status === 'Completed') updates.payment_status = 'Paid';
     const { error } = await supabase.from('orders').update(updates).eq('id', req.params.id);
