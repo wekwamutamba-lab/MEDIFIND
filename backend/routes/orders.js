@@ -22,6 +22,11 @@ router.get('/', async (req, res) => {
       completed: all.filter((o) => o.order_status === 'Completed').length,
       pending: all.filter((o) => o.order_status === 'Pending').length,
       cancelled: all.filter((o) => o.order_status === 'Cancelled').length,
+      // revenue of every order that was not cancelled
+      revenue:
+        Math.round(
+          all.filter((o) => o.order_status !== 'Cancelled').reduce((s, o) => s + o.total, 0) * 100
+        ) / 100,
     };
 
     let rows = all;

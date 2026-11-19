@@ -6,14 +6,20 @@ import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import SearchInput from '../components/SearchInput';
+import ListBody from '../components/ListBody';
+import useDebounced from '../lib/useDebounced';
+
+const EMPTY_FORM = { name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' };
 
 export default function Products() {
   const [data, setData] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState({ total: 0, low: 0, out: 0 });
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const query = useDebounced(search);
   const [category, setCategory] = useState('');
 
   const [addOpen, setAddOpen] = useState(false);
@@ -21,13 +27,13 @@ export default function Products() {
   const [delOpen, setDelOpen] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [delId, setDelId] = useState(null);
-  const [form, setForm] = useState({ name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getProducts({ search, category, page: 1, limit: 100 });
+      const res = await getProducts({ search: query, category, page: 1, limit: 100 });
       const rows = res?.data ?? [];
       setData(rows);
       setCategories(res?.categories ?? []);
@@ -40,7 +46,7 @@ export default function Products() {
   };
 
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search, category]);
+  useEffect(() => { load(); }, [query, category]);
 
   const columns = [
     { key: 'sku', label: 'SKU', render: (row) => row.sku || row.id || '—' },
@@ -64,41 +70,53 @@ export default function Products() {
         expiryDate: (row.expiry_date || row.expiryDate || '').slice(0, 10),
         description: row.description || '',
       });
+      setSaveError('');
       setEditOpen(true);
     } else if (action === 'delete') {
       setDelId(row.id);
+      setSaveError('');
       setDelOpen(true);
     }
   };
 
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setSaveError('');
+    setAddOpen(true);
+  };
+
+  // Save errors are shown inside the open form, so the form and what was typed stay put
   const handleAddSubmit = async (e) => {
     e.preventDefault();
+    setSaveError('');
     try {
       await createProduct(form);
       setAddOpen(false);
-      setForm({ name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' });
+      setForm(EMPTY_FORM);
       await load();
-    } catch (err) { setError(err.message || 'Failed to create product'); }
+    } catch (err) { setSaveError(err.message || 'Failed to create product'); }
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!editProduct) return;
+    setSaveError('');
     try {
       await updateProduct(editProduct.id, form);
       setEditOpen(false);
       await load();
-    } catch (err) { setError(err.message || 'Failed to update product'); }
+    } catch (err) { setSaveError(err.message || 'Failed to update product'); }
   };
 
   const handleDelete = async () => {
     if (!delId) return;
+    setSaveError('');
     try {
       await deleteProduct(delId);
       setDelOpen(false);
       setDelId(null);
       await load();
-    } catch (err) { setError(err.message || 'Failed to delete product'); }
+    } catch (err) { setSaveError(err.message || 'Failed to delete product'); }
   };
 
   const lowStockCount = stats?.low ?? 0;
@@ -111,93 +129,18 @@ export default function Products() {
     { title: 'Categories', value: categories.length, sublabel: 'Product categories', Icon: CatIcon },
   ];
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-          <button
-            type="button"
-            onClick={() => { setAddOpen(false); setAddOpen(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
-            disabled
-          >
-            <Plus size={18} /> Add New Product
-          </button>
-        </div>
-        <div className="flex items-center justify-center h-96 text-gray-500">
-          <div className="flex flex-col items-center gap-3 animate-pulse">
-            <div className="w-48 h-8 rounded bg-gray-200"></div>
-            <div className="w-64 h-4 rounded bg-gray-200"></div>
-            <div className="w-32 h-4 rounded bg-gray-200"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-          <button
-            type="button"
-            onClick={() => { setAddOpen(false); setAddOpen(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
-          >
-            <Plus size={18} /> Add New Product
-          </button>
-        </div>
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-center gap-3">
-          <span className="text-red-800 text-sm">Error loading products:</span>
-          <span className="text-red-600 text-sm">{error}</span>
-          <button
-            type="button"
-            onClick={load}
-            className="px-3 py-1.5 rounded text-sm text-[#0F3D2E] underline hover:text-[#0F3D2E]/80"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-          <button
-            type="button"
-            onClick={() => { setAddOpen(false); setAddOpen(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
-          >
-            <Plus size={18} /> Add New Product
-          </button>
-        </div>
-        <div className="rounded-2xl bg-white border border-gray-200 p-12 text-center">
-          <p className="text-gray-500 text-sm">No products found.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Products</h1>
         <button
           type="button"
-          onClick={() => { setAddOpen(false); setAddOpen(true); }}
+          onClick={openAdd}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
         >
           <Plus size={18} /> Add New Product
         </button>
       </div>
-
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800 text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {statCards.map((c) => (
@@ -228,12 +171,24 @@ export default function Products() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <ListBody
+        loading={loading}
+        error={error}
+        onRetry={load}
+        isEmpty={data.length === 0}
+        emptyText={search || category ? 'No products match your search.' : 'No products yet. Use "Add New Product" to add your first one.'}
+      >
         <DataTable columns={columns} data={data} pageSize={10} onAction={handleAction} />
-      </div>
+      </ListBody>
+
+      {/* Category suggestions for the add and edit forms; any new category can be typed */}
+      <datalist id="product-categories">
+        {categories.map((c) => <option key={catKey(c)} value={c.name} />)}
+      </datalist>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Product">
         <form onSubmit={handleAddSubmit} className="space-y-4">
+          {saveError && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{saveError}</div>}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Medicine name</label>
@@ -241,10 +196,7 @@ export default function Products() {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Category</label>
-              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required>
-                <option value="">Select category</option>
-                {categories.map((c) => <option key={catKey(c)} value={c.name}>{c.name}</option>)}
-              </select>
+              <input list="product-categories" placeholder="e.g. Antibiotic" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -276,6 +228,7 @@ export default function Products() {
 
       <Modal open={editOpen && !!editProduct} onClose={() => setEditOpen(false)} title="Edit Product">
         <form onSubmit={handleEditSubmit} className="space-y-4">
+          {saveError && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{saveError}</div>}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Medicine name</label>
@@ -283,9 +236,7 @@ export default function Products() {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Category</label>
-              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required>
-                {categories.map((c) => <option key={catKey(c)} value={c.name}>{c.name}</option>)}
-              </select>
+              <input list="product-categories" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -316,6 +267,7 @@ export default function Products() {
       </Modal>
 
       <Modal open={delOpen && !!delId} onClose={() => setDelOpen(false)} title="Delete Product">
+        {saveError && <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-4 text-sm text-red-700">{saveError}</div>}
         <p className="text-sm text-gray-700 mb-6">Are you sure you want to delete this product? This cannot be undone.</p>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={() => setDelOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
