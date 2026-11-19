@@ -21,8 +21,7 @@ const origins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').
 app.use(cors({ origin: origins }));
 app.use(express.json());
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
-
+app.get('/api/health', (req, res) => res.json({ ok: true, version: 'orders-fix-1' }));
 // Everything below needs a valid login
 app.use('/api', requireAuth);
 
