@@ -39,19 +39,33 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/orders  { customer_name, product_id, quantity }
+// POST /api/orders  { customer_name, product_id OR product_name, quantity }
 router.post('/', async (req, res) => {
   try {
     const name = String(req.body?.customer_name || '').trim();
     const product_id = req.body?.product_id;
+    const product_name = String(req.body?.product_name || '').trim();
     const quantity = Math.max(parseInt(req.body?.quantity) || 1, 1);
-    if (!name || !product_id) {
-      return res.status(400).json({ error: 'customer_name and product_id are required' });
+    if (!name) {
+      return res.status(400).json({ error: 'customer_name is required' });
+    }
+    if (!product_id && !product_name) {
+      return res.status(400).json({ error: 'product_id or product_name is required' });
     }
 
-    const { data: product, error: pe } = await supabase
-      .from('products').select('*').eq('id', product_id).single();
-    if (pe || !product) return res.status(404).json({ error: 'Product not found' });
+    let product;
+    if (product_id) {
+      const { data, error: pe } = await supabase
+        .from('products').select('*').eq('id', product_id).single();
+      if (pe || !data) return res.status(404).json({ error: 'Product not found' });
+      product = data;
+    } else {
+      const { data, error: pe } = await supabase
+        .from('products').select('*').ilike('name', product_name).limit(1);
+      if (pe) throw pe;
+      if (!data || !data.length) return res.status(404).json({ error: 'Product not found' });
+      product = data[0];
+    }
     if (product.quantity < quantity) {
       return res.status(400).json({ error: `Only ${product.quantity} units in stock` });
     }

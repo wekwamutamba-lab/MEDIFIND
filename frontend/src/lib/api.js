@@ -220,8 +220,8 @@ export async function createOrder(order) {
   return request('/orders', {
     method: 'POST',
     body: JSON.stringify({
-      customer_id: order.customerId,
-      product_id: order.productId,
+      customer_name: order.customerName,
+      product_name: order.medicine,
       quantity: Number(order.quantity),
       total: Number(order.total) || 0,
     }),
