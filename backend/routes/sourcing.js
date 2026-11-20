@@ -91,6 +91,9 @@ router.post('/find', async (req, res) => {
         supplier: s.name || 'Unknown supplier',
         address: s.address || '',
         phone: s.phone || '',
+        // needed by the Pro "Send by WhatsApp / email" buttons on the Restock page
+        whatsapp: s.whatsapp || '',
+        email: s.email || '',
         product_name: r.product_name,
         unit_price: price,
         stock: r.stock,

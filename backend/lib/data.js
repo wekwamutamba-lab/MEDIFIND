@@ -1,4 +1,5 @@
 import * as sb from './supabase.js';
+import { localParts } from './time.js';
 
 const supabase = sb.supabase || sb.default;
 
@@ -48,17 +49,21 @@ export async function loadOrders() {
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Last 6 months, oldest first: [{ month: 'Jun', value }]
-export function byMonth(orders) {
-  const now = new Date();
+// Revenue for the last 6 months, counted in the pharmacy's time zone
+export function byMonth(orders, now = new Date()) {
+  const today = localParts(now);
   const buckets = [];
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: MONTHS[d.getMonth()], value: 0 });
+    const idx = today.year * 12 + today.month - i;
+    const year = Math.floor(idx / 12);
+    const month = idx % 12;
+    buckets.push({ key: `${year}-${month}`, month: MONTHS[month], value: 0 });
   }
   for (const o of orders) {
     if (o.order_status === 'Cancelled') continue;
-    const d = new Date(o.order_date);
-    const b = buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`);
+    const d = localParts(o.order_date);
+    if (!d) continue;
+    const b = buckets.find((x) => x.key === `${d.year}-${d.month}`);
     if (b) b.value += o.total;
   }
   return buckets.map(({ month, value }) => ({ month, value: Math.round(value * 100) / 100 }));

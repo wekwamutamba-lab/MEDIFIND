@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { loadOrders, byMonth } from '../lib/data.js';
+import { localParts } from '../lib/time.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -55,11 +56,13 @@ router.get('/sales', async (req, res) => {
     const revenue = valid.reduce((s, o) => s + o.total, 0);
     const profit = revenue * 0.3;
 
-    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // Busy times by day and hour in the pharmacy's time zone. Orders saved with a
+    // date only have no time of day, so they are left out instead of all showing at midnight.
     const grid = new Map();
     for (const o of valid) {
-      const d = new Date(o.order_date);
-      const key = `${DAYS[d.getDay()]}-${d.getHours()}`;
+      const d = localParts(o.order_date);
+      if (!d || d.hour == null) continue;
+      const key = `${d.weekday}-${d.hour}`;
       grid.set(key, (grid.get(key) || 0) + 1);
     }
     const ordersByTime = [...grid.entries()].map(([k, count]) => {
