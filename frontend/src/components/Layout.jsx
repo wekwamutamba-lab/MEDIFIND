@@ -22,11 +22,13 @@ import {
   Building2,
   Sun,
   Moon,
+  Receipt,
 } from 'lucide-react';
 
 const MAIN_LINKS = [
   { name: 'Overview', path: '/overview', icon: Home },
   { name: 'Products', path: '/products', icon: Package },
+  { name: 'New Sale', path: '/sell', icon: Receipt },
   { name: 'Orders', path: '/orders', icon: ShoppingCart },
   { name: 'Sales', path: '/sales', icon: Banknote },
   { name: 'Customers', path: '/customers', icon: Users },

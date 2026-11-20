@@ -74,24 +74,60 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/products – contract: only name, quantity, price required
+// Checks the editable product fields. Returns { fields } or { error }.
+// Only fields present in the body are returned, so it works for create and partial update.
+function readProductFields(body = {}) {
+  const fields = {};
+  if (body.name !== undefined) {
+    const name = String(body.name).trim();
+    if (!name) return { error: 'Medicine name cannot be empty' };
+    fields.name = name;
+  }
+  if (body.quantity !== undefined) {
+    const q = Number(body.quantity);
+    if (!Number.isInteger(q) || q < 0) return { error: 'Quantity must be a whole number, 0 or more' };
+    fields.quantity = q;
+  }
+  if (body.price !== undefined) {
+    const pr = Number(body.price);
+    if (!Number.isFinite(pr) || pr < 0) return { error: 'Price must be 0 or more' };
+    fields.price = Math.round(pr * 100) / 100;
+  }
+  if (body.category !== undefined) {
+    fields.category = String(body.category || '').trim() || 'General';
+  }
+  if (body.expiry_date !== undefined) {
+    const d = body.expiry_date ? String(body.expiry_date).slice(0, 10) : null;
+    if (d && (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)))) {
+      return { error: 'Expiry date must be a valid date (YYYY-MM-DD)' };
+    }
+    fields.expiry_date = d;
+  }
+  return { fields };
+}
+
+// POST /api/products – name and quantity required; price, category, expiry_date optional
 router.post('/', async (req, res) => {
   try {
-    const { name, quantity, price } = req.body;
-    if (!name || quantity === undefined) {
+    if (!req.body?.name || req.body?.quantity === undefined) {
       return res.status(400).json({ error: 'name and quantity are required' });
     }
-    // if no pharmacy_id supplied pick the first pharmacy
-    let pid;
-    const { data: ph } = await supabase.from('pharmacies').select('id').limit(1);
-    if (ph && ph.length) pid = ph[0].id;
+    const { fields, error: invalid } = readProductFields(req.body);
+    if (invalid) return res.status(400).json({ error: invalid });
+
+    // use the pharmacy_id sent by the client, otherwise the first pharmacy
+    let pid = req.body.pharmacy_id || null;
+    if (!pid) {
+      const { data: ph, error: phe } = await supabase.from('pharmacies').select('id').limit(1);
+      if (phe) throw phe;
+      if (ph && ph.length) pid = ph[0].id;
+    }
 
     const row = {
-      name,
       category: 'General',
-      quantity: Number(quantity),
-      price: Number(price) || 0,
+      price: 0,
       expiry_date: null,
+      ...fields,
       pharmacy_id: pid,
     };
     const { data, error } = await supabase.from('products').insert(row).select().single();
@@ -105,13 +141,12 @@ router.post('/', async (req, res) => {
 // PUT /api/products/:id – partial update, return updated product with status
 router.put('/:id', async (req, res) => {
   try {
-    const { name, quantity, price } = req.body;
-    const updates = {};
-    if (name !== undefined) updates.name = name;
-    if (quantity !== undefined) updates.quantity = Number(quantity);
-    if (price !== undefined) updates.price = Number(price);
+    const { fields: updates, error: invalid } = readProductFields(req.body);
+    if (invalid) return res.status(400).json({ error: invalid });
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
+
     const { data, error } = await supabase
-      .from('products').update(updates).eq('id', req.params.id).select().single();
+      .from('products').update(updates).eq('id', req.params.id).select().maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Product not found' });
     res.json(withStatus(data));

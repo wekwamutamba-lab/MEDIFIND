@@ -49,6 +49,7 @@ export default function Restock() {
   const [ordering, setOrdering] = useState(false);
   const [message, setMessage] = useState('');
   const [lastOrder, setLastOrder] = useState(null);
+  const [receivingId, setReceivingId] = useState(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -134,6 +135,8 @@ export default function Restock() {
   };
 
   const markReceived = async (id) => {
+    if (receivingId) return;
+    setReceivingId(id);
     setOrdersError('');
     try {
       await receiveRestock(id);
@@ -141,6 +144,8 @@ export default function Restock() {
       await loadOrders();
     } catch (e) {
       setOrdersError(e.message || 'Could not mark as received');
+    } finally {
+      setReceivingId(null);
     }
   };
 
@@ -464,9 +469,10 @@ export default function Restock() {
                     {o.status === 'Ordered' && (
                       <button
                         onClick={() => markReceived(o.id)}
-                        className="rounded-lg bg-[#D9F26B] px-3 py-1 text-xs font-semibold text-[#0F3D2E] hover:bg-[#cfe85c]"
+                        disabled={!!receivingId}
+                        className="rounded-lg bg-[#D9F26B] px-3 py-1 text-xs font-semibold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:opacity-60"
                       >
-                        Mark received
+                        {receivingId === o.id ? 'Saving…' : 'Mark received'}
                       </button>
                     )}
                   </td>

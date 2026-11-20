@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
+import { adjustStock, restoreStock } from '../lib/stock.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -61,60 +62,74 @@ router.post('/checkout', async (req, res) => {
     if (pe) throw pe;
     const pMap = new Map((products || []).map((p) => [p.id, p]));
 
-    // Check every item BEFORE changing anything
-    for (const [id, q] of wanted) {
-      const p = pMap.get(id);
-      if (!p) return res.status(404).json({ error: 'One of the medicines no longer exists' });
-      if ((p.quantity || 0) < q) {
-        return res
-          .status(400)
-          .json({ error: `Only ${p.quantity || 0} units of ${p.name} in stock` });
-      }
+    for (const id of wanted.keys()) {
+      if (!pMap.has(id)) return res.status(404).json({ error: 'One of the medicines no longer exists' });
     }
 
-    const { customer, created } = await findOrCreateCustomer({ name, phone, email });
+    // Take the stock for every line first. adjustStock refuses (400) if there is not
+    // enough, even when another sale happens at the same moment.
+    const taken = [];
+    try {
+      for (const [id, q] of wanted) {
+        await adjustStock(id, -q);
+        taken.push([id, q]);
+      }
+    } catch (err) {
+      for (const [id, q] of taken) await restoreStock(id, q);
+      throw err;
+    }
+
     const now = new Date().toISOString();
     const lines = [];
-    let firstOrderId = '';
+    const orderIds = [];
+    let customer;
+    let created;
 
-    for (const [id, q] of wanted) {
-      const p = pMap.get(id);
-      const price = Number(p.price) || 0;
-      const total = round2(price * q);
+    try {
+      ({ customer, created } = await findOrCreateCustomer({ name, phone, email }));
 
-      const { data: order, error: oe } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: customer.id,
-          product_id: id,
-          quantity: q,
-          total,
-          order_date: now,
+      for (const [id, q] of wanted) {
+        const p = pMap.get(id);
+        const price = Number(p.price) || 0;
+        const total = round2(price * q);
+
+        const { data: order, error: oe } = await supabase
+          .from('orders')
+          .insert({
+            customer_id: customer.id,
+            product_id: id,
+            quantity: q,
+            total,
+            order_date: now,
+            status: 'Completed',
+            payment_status: 'Paid',
+          })
+          .select('id')
+          .single();
+        if (oe) throw oe;
+        orderIds.push(order.id);
+
+        const { error: payErr } = await supabase.from('payments').insert({
+          order_id: order.id,
+          amount: total,
           status: 'Completed',
-          payment_status: 'Paid',
-        })
-        .select('id')
-        .single();
-      if (oe) throw oe;
-      if (!firstOrderId) firstOrderId = String(order.id);
+          method,
+          payment_date: now,
+        });
+        if (payErr) throw payErr;
 
-      const { error: payErr } = await supabase.from('payments').insert({
-        order_id: order.id,
-        amount: total,
-        status: 'Completed',
-        method,
-        payment_date: now,
-      });
-      if (payErr) throw payErr;
-
-      const { error: stockErr } = await supabase
-        .from('products')
-        .update({ quantity: (p.quantity || 0) - q })
-        .eq('id', id);
-      if (stockErr) throw stockErr;
-
-      lines.push({ product_id: id, name: p.name, quantity: q, unit_price: price, total });
+        lines.push({ product_id: id, name: p.name, quantity: q, unit_price: price, total });
+      }
+    } catch (err) {
+      // Undo the whole sale so nothing is half-saved
+      if (orderIds.length) {
+        await supabase.from('payments').delete().in('order_id', orderIds);
+        await supabase.from('orders').delete().in('id', orderIds);
+      }
+      for (const [id, q] of taken) await restoreStock(id, q);
+      throw err;
     }
+    const firstOrderId = String(orderIds[0] || '');
 
     res.status(201).json({
       receipt_no: firstOrderId.slice(0, 8).toUpperCase(),
@@ -126,7 +141,7 @@ router.post('/checkout', async (req, res) => {
       total: round2(lines.reduce((s, l) => s + l.total, 0)),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

@@ -6,28 +6,36 @@ import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import SearchInput from '../components/SearchInput';
+import ListBody from '../components/ListBody';
+import useDebounced from '../lib/useDebounced';
+
+const EMPTY_FORM = { customerName: '', medicine: '', quantity: '1', total: '0', status: 'Pending', paymentStatus: 'Pending' };
+const STATUSES = ['Pending', 'Completed', 'Cancelled'];
+const EMPTY_STATS = { total: 0, pending: 0, cancelled: 0, revenue: 0 };
 
 export default function Orders() {
   const [data, setData] = useState([]);
-  const [stats, setStats] = useState({ totalOrders: 0 });
+  const [stats, setStats] = useState(EMPTY_STATS);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const query = useDebounced(search);
   const [status, setStatus] = useState('');
 
   const [addOpen, setAddOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [editOrder, setEditOrder] = useState(null);
-  const [form, setForm] = useState({ customerName: '', medicine: '', quantity: '1', total: '0', status: 'Pending', paymentStatus: 'Unpaid' });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getOrders({ search, status, page: 1, limit: 100 });
+      const res = await getOrders({ search: query, status, page: 1, limit: 100 });
       const rows = res?.data ?? [];
       setData(rows);
-      setStats(res?.stats ?? { totalOrders: 0 });
+      setStats(res?.stats ?? EMPTY_STATS);
     } catch (err) {
       setError(err.message || 'Failed to load orders');
     } finally {
@@ -36,10 +44,12 @@ export default function Orders() {
   };
 
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search, status]);
+  useEffect(() => { load(); }, [query, status]);
 
-  const pending = data.filter((o) => (o.order_status || o.status) === 'Pending').length;
-  const revenue = data.reduce((s, o) => s + Number(o.total || 0), 0);
+  // Card figures cover all orders (from the server), not just the rows on screen.
+  // Revenue leaves out cancelled orders.
+  const revenue = Number(stats?.revenue ?? 0);
+  const activeOrders = (stats?.total ?? 0) - (stats?.cancelled ?? 0);
 
   const columns = [
     { key: 'id', label: 'Order ID', render: (row) => row.id || '—' },
@@ -66,103 +76,41 @@ export default function Orders() {
         quantity: String(row.quantity ?? 1),
         total: String(oTotal(row)),
         status: row.order_status || row.status || 'Pending',
-        paymentStatus: row.payment_status || row.paymentStatus || 'Unpaid',
+        paymentStatus: row.payment_status || row.paymentStatus || 'Pending',
       });
+      setSaveError('');
       setStatusOpen(true);
     }
   };
 
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setSaveError('');
+    setAddOpen(true);
+  };
+
+  // Save errors are shown inside the open form, so the form and what was typed stay put
   const handleAddSubmit = async (e) => {
     e.preventDefault();
+    setSaveError('');
     try {
       await createOrder(form);
       setAddOpen(false);
-      setForm({ customerName: '', medicine: '', quantity: '1', total: '0', status: 'Pending', paymentStatus: 'Unpaid' });
+      setForm(EMPTY_FORM);
       await load();
-    } catch (err) { setError(err.message || 'Failed to create order'); }
+    } catch (err) { setSaveError(err.message || 'Failed to create order'); }
   };
 
   const handleStatusSubmit = async (e) => {
     e.preventDefault();
     if (!editOrder) return;
+    setSaveError('');
     try {
       await updateOrder(editOrder.id, form);
       setStatusOpen(false);
       await load();
-    } catch (err) { setError(err.message || 'Failed to update order'); }
+    } catch (err) { setSaveError(err.message || 'Failed to update order'); }
   };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <button
-            type="button"
-            onClick={() => { setAddOpen(false); setAddOpen(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
-            disabled
-          >
-            <Plus size={18} /> Add New Order
-          </button>
-        </div>
-        <div className="flex items-center justify-center h-96 text-gray-500">
-          <div className="flex flex-col items-center gap-3 animate-pulse">
-            <div className="w-48 h-8 rounded bg-gray-200"></div>
-            <div className="w-64 h-4 rounded bg-gray-200"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <button
-            type="button"
-            onClick={() => { setAddOpen(false); setAddOpen(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
-          >
-            <Plus size={18} /> Add New Order
-          </button>
-        </div>
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-center gap-3">
-          <span className="text-red-800 text-sm">Error loading orders:</span>
-          <span className="text-red-600 text-sm">{error}</span>
-          <button
-            type="button"
-            onClick={load}
-            className="px-3 py-1.5 rounded text-sm text-[#0F3D2E] underline hover:text-[#0F3D2E]/80"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <button
-            type="button"
-            onClick={() => { setAddOpen(false); setAddOpen(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
-          >
-            <Plus size={18} /> Add New Order
-          </button>
-        </div>
-        <div className="rounded-2xl bg-white border border-gray-200 p-12 text-center">
-          <p className="text-gray-500 text-sm">No orders found.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -170,20 +118,18 @@ export default function Orders() {
         <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
         <button
           type="button"
-          onClick={() => { setAddOpen(false); setAddOpen(true); }}
+          onClick={openAdd}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
         >
           <Plus size={18} /> Add New Order
         </button>
       </div>
 
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800 text-sm">{error}</div>}
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Orders" value={stats?.totalOrders ?? data.length} sublabel="All orders" Icon={OrderIcon} variant="green" />
-        <StatCard title="Pending" value={pending} sublabel="Awaiting fulfillment" Icon={PendingIcon} />
-        <StatCard title="Total Revenue" value={`$${revenue.toFixed(2)}`} sublabel="This period" Icon={MoneyIcon} />
-        <StatCard title="Average Order" value={`$${(revenue / data.length || 0).toFixed(2)}`} sublabel="Per order" Icon={AvgIcon} />
+        <StatCard title="Total Orders" value={stats?.total ?? 0} sublabel="All orders" Icon={OrderIcon} variant="green" />
+        <StatCard title="Pending" value={stats?.pending ?? 0} sublabel="Awaiting fulfillment" Icon={PendingIcon} />
+        <StatCard title="Total Revenue" value={`$${revenue.toFixed(2)}`} sublabel="Excluding cancelled" Icon={MoneyIcon} />
+        <StatCard title="Average Order" value={`$${(activeOrders > 0 ? revenue / activeOrders : 0).toFixed(2)}`} sublabel="Per order, excluding cancelled" Icon={AvgIcon} />
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -194,7 +140,7 @@ export default function Orders() {
           >
             All Status
           </button>
-          {['Pending', 'Processing', 'Delivered', 'Cancelled'].map((s) => (
+          {STATUSES.map((s) => (
             <button key={s} onClick={() => setStatus(s)} className={`px-3 py-1.5 rounded-full text-sm border ${status === s ? 'border-[#D9F26B] bg-[#D9F26B] text-[#0F3D2E] font-semibold' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
               {s}
             </button>
@@ -205,12 +151,19 @@ export default function Orders() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <ListBody
+        loading={loading}
+        error={error}
+        onRetry={load}
+        isEmpty={data.length === 0}
+        emptyText={search || status ? 'No orders match your search.' : 'No orders yet.'}
+      >
         <DataTable columns={columns} data={data} pageSize={10} onAction={handleAction} />
-      </div>
+      </ListBody>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Order">
         <form onSubmit={handleAddSubmit} className="space-y-4">
+          {saveError && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{saveError}</div>}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Customer name</label>
@@ -221,35 +174,13 @@ export default function Orders() {
               <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Quantity</label>
-              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Total ($)</label>
-              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.total} onChange={(e) => setForm({ ...form, total: e.target.value })} required />
-            </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-600">Quantity</label>
+            <input type="number" min="1" step="1" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Status</label>
-              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="Pending">Pending</option>
-                <option value="Processing">Processing</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Payment status</label>
-              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-                <option value="Unpaid">Unpaid</option>
-                <option value="Paid">Paid</option>
-                <option value="Partial">Partial</option>
-              </select>
-            </div>
-          </div>
+          <p className="text-xs text-gray-500">
+            The total is worked out from the medicine&apos;s price. New orders start as Pending; change the status from the order list.
+          </p>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setAddOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
             <button type="submit" className="px-4 py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] font-semibold">Create Order</button>
@@ -259,46 +190,42 @@ export default function Orders() {
 
       <Modal open={statusOpen && !!editOrder} onClose={() => setStatusOpen(false)} title="Update Order">
         <form onSubmit={handleStatusSubmit} className="space-y-4">
+          {saveError && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{saveError}</div>}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-gray-600">Order</label>
             <p className="text-sm text-gray-900 font-medium">{editOrder?.id ?? '—'}</p>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-600">Customer</label>
-            <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} required />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-600">Medicine</label>
-            <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required />
-          </div>
+          {/* Only the order status can be changed here; the other details are shown for reference */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-600">Customer</label>
+              <p className="text-sm text-gray-900">{form.customerName || '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-600">Medicine</label>
+              <p className="text-sm text-gray-900">{form.medicine || '—'}</p>
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-600">Quantity</label>
-              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+              <p className="text-sm text-gray-900">{form.quantity}</p>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Total ($)</label>
-              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.total} onChange={(e) => setForm({ ...form, total: e.target.value })} required />
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-600">Total</label>
+              <p className="text-sm text-gray-900">${Number(form.total || 0).toFixed(2)}</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-600">Payment</label>
+              <p className="text-sm text-gray-900">{form.paymentStatus}</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Status</label>
-              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="Pending">Pending</option>
-                <option value="Processing">Processing</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Payment status</label>
-              <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-                <option value="Unpaid">Unpaid</option>
-                <option value="Paid">Paid</option>
-                <option value="Partial">Partial</option>
-              </select>
-            </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-600">Status</label>
+            <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            <p className="text-xs text-gray-500">Marking an order Completed also marks it as paid.</p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setStatusOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>

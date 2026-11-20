@@ -7,7 +7,7 @@ const router = Router();
 const normStatus = (s) => {
   const v = String(s || '').trim().toLowerCase();
   if (['completed', 'paid', 'success', 'successful'].includes(v)) return 'Completed';
-  if (['failed', 'declined', 'cancelled', 'canceled'].includes(v)) return 'Failed';
+  if (['failed', 'declined', 'cancelled', 'canceled', 'refunded'].includes(v)) return 'Failed';
   return 'Pending';
 };
 
