@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { requireAuth } from './lib/auth.js';
+import { createAiLimiter } from './lib/rateLimit.js';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
@@ -24,6 +25,9 @@ app.use(express.json());
 app.get('/api/health', (req, res) => res.json({ ok: true, version: 'orders-fix-1' }));
 // Everything below needs a valid login
 app.use('/api', requireAuth);
+
+// Endpoints that call Gemini are rate limited per user and overall (see lib/rateLimit.js)
+app.post(['/api/find', '/api/insights'], createAiLimiter());
 
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);

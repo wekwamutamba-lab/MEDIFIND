@@ -1,5 +1,6 @@
 ﻿import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
+import { selectAll } from '../lib/selectAll.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -21,19 +22,18 @@ router.get('/', async (req, res) => {
       (s) => s.toLowerCase() === String(req.query.status || '').trim().toLowerCase()
     );
 
-    const [pay, ord, cus] = await Promise.all([
-      supabase.from('payments').select('*').order('payment_date', { ascending: false }),
-      supabase.from('orders').select('id, customer_id'),
-      supabase.from('customers').select('id, name'),
+    const [payments, orders, customers] = await Promise.all([
+      selectAll(() =>
+        supabase.from('payments').select('*').order('payment_date', { ascending: false })
+      ),
+      selectAll(() => supabase.from('orders').select('id, customer_id')),
+      selectAll(() => supabase.from('customers').select('id, name')),
     ]);
-    if (pay.error) throw pay.error;
-    if (ord.error) throw ord.error;
-    if (cus.error) throw cus.error;
 
-    const orderToCustomer = new Map(ord.data.map((o) => [o.id, o.customer_id]));
-    const customerName = new Map(cus.data.map((c) => [c.id, c.name]));
+    const orderToCustomer = new Map(orders.map((o) => [o.id, o.customer_id]));
+    const customerName = new Map(customers.map((c) => [c.id, c.name]));
 
-    const all = pay.data.map((p) => ({
+    const all = payments.map((p) => ({
       id: p.id,
       customer_name: customerName.get(orderToCustomer.get(p.order_id)) || 'Unknown',
       payment_date: p.payment_date,
@@ -47,6 +47,11 @@ router.get('/', async (req, res) => {
       completed: all.filter((p) => p.status === 'Completed').length,
       pending: all.filter((p) => p.status === 'Pending').length,
       failed: all.filter((p) => p.status === 'Failed').length,
+      // money actually collected, over every payment (not just the rows on screen)
+      collected:
+        Math.round(
+          all.filter((p) => p.status === 'Completed').reduce((s, p) => s + p.amount, 0) * 100
+        ) / 100,
     };
 
     let rows = all;

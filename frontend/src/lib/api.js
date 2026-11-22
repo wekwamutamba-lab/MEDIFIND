@@ -165,7 +165,11 @@ async function request(pathname, options = {}) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(`${method} ${url} failed (${res.status}): ${err.error || res.statusText}`);
+    // Show the server's own message (e.g. "Only 3 units in stock") when there is one;
+    // the technical details are only used when it sent none
+    const e = new Error(err.error || `${method} ${url} failed (${res.status}): ${res.statusText}`);
+    e.status = res.status;
+    throw e;
   }
   return res.json();
 }

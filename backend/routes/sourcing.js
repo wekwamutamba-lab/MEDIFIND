@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as sb from '../lib/supabase.js';
 import { adjustStock, exactIlike } from '../lib/stock.js';
+import { selectAll } from '../lib/selectAll.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -39,13 +40,13 @@ function fallbackParse(query) {
 }
 
 async function findRows(term) {
-  const { data, error } = await supabase
-    .from('supplier_products')
-    .select('*')
-    .ilike('product_name', `%${term}%`)
-    .gt('stock', 0);
-  if (error) throw error;
-  return data || [];
+  return selectAll(() =>
+    supabase
+      .from('supplier_products')
+      .select('*')
+      .ilike('product_name', `%${term}%`)
+      .gt('stock', 0)
+  );
 }
 
 // POST /api/find  { query }  -> suppliers that can supply the medicine
@@ -78,8 +79,8 @@ router.post('/find', async (req, res) => {
       }
     }
 
-    const { data: sups } = await supabase.from('suppliers').select('*');
-    const sMap = new Map((sups || []).map((s) => [s.id, s]));
+    const sups = await selectAll(() => supabase.from('suppliers').select('*'));
+    const sMap = new Map(sups.map((s) => [s.id, s]));
 
     const results = rows.map((r) => {
       const s = sMap.get(r.supplier_id) || {};
@@ -150,13 +151,14 @@ router.post('/restock', async (req, res) => {
 // GET /api/restock
 router.get('/restock', async (req, res) => {
   try {
-    const [o, s] = await Promise.all([
-      supabase.from('restock_orders').select('*').order('created_at', { ascending: false }),
-      supabase.from('suppliers').select('id, name'),
+    const [orders, suppliers] = await Promise.all([
+      selectAll(() =>
+        supabase.from('restock_orders').select('*').order('created_at', { ascending: false })
+      ),
+      selectAll(() => supabase.from('suppliers').select('id, name')),
     ]);
-    if (o.error) throw o.error;
-    const names = new Map((s.data || []).map((x) => [x.id, x.name]));
-    const data = o.data.map((r) => ({ ...r, supplier: names.get(r.supplier_id) || 'Unknown' }));
+    const names = new Map(suppliers.map((x) => [x.id, x.name]));
+    const data = orders.map((r) => ({ ...r, supplier: names.get(r.supplier_id) || 'Unknown' }));
     res.json({
       data,
       total: data.length,

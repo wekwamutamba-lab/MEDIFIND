@@ -10,9 +10,12 @@ import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
 
 const EMPTY_FORM = { name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' };
+const PAGE_SIZE = 10;
 
 export default function Products() {
   const [data, setData] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState({ total: 0, low: 0, out: 0 });
   const [error, setError] = useState(null);
@@ -29,13 +32,21 @@ export default function Products() {
   const [delId, setDelId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = async () => {
+  const load = async (p = page) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getProducts({ search: query, category, page: 1, limit: 100 });
+      const res = await getProducts({ search: query, category, page: p, limit: PAGE_SIZE });
       const rows = res?.data ?? [];
+      const count = res?.total ?? 0;
+      // e.g. the only product on the last page was deleted: step back a page
+      if (!rows.length && count > 0 && p > 1) {
+        const last = Math.ceil(count / PAGE_SIZE);
+        setPage(last);
+        return load(last);
+      }
       setData(rows);
+      setTotal(count);
       setCategories(res?.categories ?? []);
       setStats(res?.stats ?? { total: 0, low: 0, out: 0 });
     } catch (err) {
@@ -45,8 +56,11 @@ export default function Products() {
     }
   };
 
+  // A new search or category starts again from page 1
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [query, category]);
+  useEffect(() => { setPage(1); load(1); }, [query, category]);
+
+  const goToPage = (p) => { setPage(p); load(p); };
 
   const columns = [
     { key: 'sku', label: 'SKU', render: (row) => row.sku || row.id || '—' },
@@ -174,11 +188,11 @@ export default function Products() {
       <ListBody
         loading={loading}
         error={error}
-        onRetry={load}
+        onRetry={() => load()}
         isEmpty={data.length === 0}
         emptyText={search || category ? 'No products match your search.' : 'No products yet. Use "Add New Product" to add your first one.'}
       >
-        <DataTable columns={columns} data={data} pageSize={10} onAction={handleAction} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} />
       </ListBody>
 
       {/* Category suggestions for the add and edit forms; any new category can be typed */}

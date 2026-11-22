@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as sb from '../lib/supabase.js';
+import { selectAll } from '../lib/selectAll.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -101,10 +102,9 @@ router.post('/find', async (req, res) => {
 // POST /api/insights
 router.post('/insights', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('name, quantity, expiry_date, category');
-    if (error) throw error;
+    const data = await selectAll(() =>
+      supabase.from('products').select('id, name, quantity, expiry_date, category')
+    );
 
     const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
     const low = (data || []).filter((p) => p.quantity < 20);

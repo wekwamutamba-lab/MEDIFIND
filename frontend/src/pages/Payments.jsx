@@ -7,29 +7,37 @@ import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
 
+const PAGE_SIZE = 10;
+const EMPTY_STATS = { completed: 0, pending: 0, failed: 0, collected: 0 };
+
 export default function Payments() {
   const [data, setData] = useState([]);
-  const [stats, setStats] = useState({ completed: 0, pending: 0, failed: 0 });
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [stats, setStats] = useState(EMPTY_STATS);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const query = useDebounced(search);
 
-  const load = async () => {
+  const load = async (p = page) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getPayments({ search: query, page: 1, limit: 100 });
-      const rows = res?.data ?? [];
-      setData(rows);
-      setStats(res?.stats ?? { completed: 0, pending: 0, failed: 0 });
+      const res = await getPayments({ search: query, page: p, limit: PAGE_SIZE });
+      setData(res?.data ?? []);
+      setTotal(res?.total ?? 0);
+      setStats(res?.stats ?? EMPTY_STATS);
     } catch (err) {
       setError(err.message || 'Failed to load payments');
     } finally { setLoading(false); }
   };
 
+  // A new search starts again from page 1
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [query]);
+  useEffect(() => { setPage(1); load(1); }, [query]);
+
+  const goToPage = (p) => { setPage(p); load(p); };
 
   const columns = [
     { key: 'id', label: 'Payment ID', render: (row) => row.id || '—' },
@@ -41,13 +49,10 @@ export default function Payments() {
     { key: 'date', label: 'Date', render: (row) => (row.payment_date || '').slice(0, 10) || '—' },
   ];
 
-  const completed = data.filter((p) => p.status === 'Completed').length;
-  const pending = data.filter((p) => p.status === 'Pending').length;
+  // Card figures cover every payment (from the server), not only this page.
+  // Only completed payments count as money collected.
   const totalPayments = (stats?.completed ?? 0) + (stats?.pending ?? 0) + (stats?.failed ?? 0);
-  // Only completed payments count as money collected
-  const collected = data
-    .filter((p) => p.status === 'Completed')
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  const collected = Number(stats?.collected ?? 0);
 
   return (
     <div className="space-y-6">
@@ -57,9 +62,9 @@ export default function Payments() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Payments" value={totalPayments || data.length} sublabel="All transactions" Icon={PayIcon} variant="green" />
-        <StatCard title="Completed" value={stats?.completed ?? completed} sublabel="Completed" Icon={PaidIcon} variant="green" />
-        <StatCard title="Pending" value={stats?.pending ?? pending} sublabel="Awaiting payment" Icon={PendingIcon} variant="green" />
+        <StatCard title="Total Payments" value={totalPayments} sublabel="All transactions" Icon={PayIcon} variant="green" />
+        <StatCard title="Completed" value={stats?.completed ?? 0} sublabel="Completed" Icon={PaidIcon} variant="green" />
+        <StatCard title="Pending" value={stats?.pending ?? 0} sublabel="Awaiting payment" Icon={PendingIcon} variant="green" />
         <StatCard title="Total Amount" value={`$${collected.toFixed(2)}`} sublabel="Collected" Icon={MoneyIcon} />
       </div>
 
@@ -71,11 +76,11 @@ export default function Payments() {
       <ListBody
         loading={loading}
         error={error}
-        onRetry={load}
+        onRetry={() => load()}
         isEmpty={data.length === 0}
         emptyText={search ? 'No payments match your search.' : 'No payments yet.'}
       >
-        <DataTable columns={columns} data={data} pageSize={10} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} />
       </ListBody>
     </div>
   );

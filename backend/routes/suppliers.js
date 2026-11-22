@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
+import { selectAll } from '../lib/selectAll.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -16,15 +17,14 @@ const pick = (body) => {
 router.get('/', async (req, res) => {
   try {
     const search = String(req.query.search || '').trim().toLowerCase();
-    const [s, p] = await Promise.all([
-      supabase.from('suppliers').select('*').order('name'),
-      supabase.from('supplier_products').select('supplier_id'),
+    const [suppliers, products] = await Promise.all([
+      selectAll(() => supabase.from('suppliers').select('*').order('name')),
+      selectAll(() => supabase.from('supplier_products').select('id, supplier_id')),
     ]);
-    if (s.error) throw s.error;
     const counts = new Map();
-    for (const r of p.data || []) counts.set(r.supplier_id, (counts.get(r.supplier_id) || 0) + 1);
+    for (const r of products) counts.set(r.supplier_id, (counts.get(r.supplier_id) || 0) + 1);
 
-    let rows = s.data.map((x) => ({ ...x, product_count: counts.get(x.id) || 0 }));
+    let rows = suppliers.map((x) => ({ ...x, product_count: counts.get(x.id) || 0 }));
     if (search) {
       rows = rows.filter(
         (x) =>

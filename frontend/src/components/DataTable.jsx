@@ -1,12 +1,32 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function DataTable({ columns, data, pageSize = 10, onAction }) {
-  const [page, setPage] = useState(1);
-  const total = data.length;
+// Two ways to page:
+// - pass all rows in `data` and the table pages them itself, or
+// - pass one page in `data` plus `total`, `page` and `onPageChange`, and the
+//   parent fetches each page from the server (needed for long lists).
+export default function DataTable({
+  columns,
+  data,
+  pageSize = 10,
+  onAction,
+  total: serverTotal,
+  page: serverPage,
+  onPageChange,
+}) {
+  const [localPage, setLocalPage] = useState(1);
+  const serverMode = typeof onPageChange === 'function';
+  const total = serverMode ? Number(serverTotal) || 0 : data.length;
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  const currentPage = Math.min(page, pages);
-  const slice = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const currentPage = Math.min(serverMode ? serverPage || 1 : localPage, pages);
+  const setPage = (fn) => {
+    const next = fn(currentPage);
+    if (serverMode) onPageChange(next);
+    else setLocalPage(next);
+  };
+  const slice = serverMode
+    ? data
+    : data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">

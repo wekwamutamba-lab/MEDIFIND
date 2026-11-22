@@ -12,9 +12,12 @@ import useDebounced from '../lib/useDebounced';
 const EMPTY_FORM = { customerName: '', medicine: '', quantity: '1', total: '0', status: 'Pending', paymentStatus: 'Pending' };
 const STATUSES = ['Pending', 'Completed', 'Cancelled'];
 const EMPTY_STATS = { total: 0, pending: 0, cancelled: 0, revenue: 0 };
+const PAGE_SIZE = 10;
 
 export default function Orders() {
   const [data, setData] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [stats, setStats] = useState(EMPTY_STATS);
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState('');
@@ -28,13 +31,21 @@ export default function Orders() {
   const [editOrder, setEditOrder] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = async () => {
+  const load = async (p = page) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getOrders({ search: query, status, page: 1, limit: 100 });
+      const res = await getOrders({ search: query, status, page: p, limit: PAGE_SIZE });
       const rows = res?.data ?? [];
+      const count = res?.total ?? 0;
+      // e.g. the last order on the last page no longer matches the filter: step back a page
+      if (!rows.length && count > 0 && p > 1) {
+        const last = Math.ceil(count / PAGE_SIZE);
+        setPage(last);
+        return load(last);
+      }
       setData(rows);
+      setTotal(count);
       setStats(res?.stats ?? EMPTY_STATS);
     } catch (err) {
       setError(err.message || 'Failed to load orders');
@@ -43,8 +54,11 @@ export default function Orders() {
     }
   };
 
+  // A new search or filter starts again from page 1
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [query, status]);
+  useEffect(() => { setPage(1); load(1); }, [query, status]);
+
+  const goToPage = (p) => { setPage(p); load(p); };
 
   // Card figures cover all orders (from the server), not just the rows on screen.
   // Revenue leaves out cancelled orders.
@@ -154,11 +168,11 @@ export default function Orders() {
       <ListBody
         loading={loading}
         error={error}
-        onRetry={load}
+        onRetry={() => load()}
         isEmpty={data.length === 0}
         emptyText={search || status ? 'No orders match your search.' : 'No orders yet.'}
       >
-        <DataTable columns={columns} data={data} pageSize={10} onAction={handleAction} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} />
       </ListBody>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Order">

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
+import { selectAll } from '../lib/selectAll.js';
 const supabase = sb.supabase || sb.default;
 const router = Router();
 
@@ -32,16 +33,16 @@ router.get('/', async (req, res) => {
     // pagination
     const from = (pageNum - 1) * limitNum;
     const to = from + limitNum - 1;
-    q = q.range(from, to).order('name');
+    // id breaks ties between products with the same name, so pages never overlap
+    q = q.order('name').order('id').range(from, to);
 
     const { data, error, count } = await q;
     if (error) throw error;
 
     // stats & categories over ALL products (not only page)
-    const { data: allRows, error: e2 } = await supabase
-      .from('vw_products_with_status')
-      .select('category, status');
-    if (e2) throw e2;
+    const allRows = await selectAll(() =>
+      supabase.from('vw_products_with_status').select('id, category, status')
+    );
 
     const catMap = {};
     let low = 0, out = 0;

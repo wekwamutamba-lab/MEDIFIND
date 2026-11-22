@@ -6,28 +6,36 @@ import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
 
+const PAGE_SIZE = 10;
+const EMPTY_STATS = { total: 0, totalOrders: 0, totalSpent: 0 };
+
 export default function Customers() {
   const [data, setData] = useState([]);
-  const [stats, setStats] = useState({ total: 0 });
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [stats, setStats] = useState(EMPTY_STATS);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const query = useDebounced(search);
 
-  const load = async () => {
+  const load = async (p = page) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getCustomers({ search: query, page: 1, limit: 100 });
-      const rows = res?.data ?? [];
-      setData(rows);
-      setStats(res?.stats ?? { total: 0 });
+      const res = await getCustomers({ search: query, page: p, limit: PAGE_SIZE });
+      setData(res?.data ?? []);
+      setTotal(res?.total ?? 0);
+      setStats(res?.stats ?? EMPTY_STATS);
     } catch (err) { setError(err.message || 'Failed to load customers'); }
     finally { setLoading(false); }
   };
 
+  // A new search starts again from page 1
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [query]);
+  useEffect(() => { setPage(1); load(1); }, [query]);
+
+  const goToPage = (p) => { setPage(p); load(p); };
 
   const columns = [
     { key: 'name', label: 'Name', render: (row) => row.name || '—' },
@@ -38,8 +46,10 @@ export default function Customers() {
     { key: 'lastOrder', label: 'Last Order', render: (row) => (row.last_order_date || row.lastOrder || '').slice(0, 10) || '—' },
   ];
 
-  const totalSpent = data.reduce((s, c) => s + Number(c.total_spent || 0), 0);
-  const totalOrders = data.reduce((s, c) => s + Number(c.total_orders || 0), 0);
+  // Card figures cover every customer (from the server), not only this page
+  const totalSpent = Number(stats?.totalSpent ?? 0);
+  const totalOrders = Number(stats?.totalOrders ?? 0);
+  const customerCount = Number(stats?.total ?? 0);
 
   return (
     <div className="space-y-6">
@@ -49,10 +59,10 @@ export default function Customers() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Customers" value={stats?.total ?? data.length} sublabel="Registered profiles" Icon={UsersIcon} variant="green" />
+        <StatCard title="Total Customers" value={customerCount} sublabel="Registered profiles" Icon={UsersIcon} variant="green" />
         <StatCard title="Total Orders" value={totalOrders} sublabel="Placed by customers" Icon={OrderIcon} />
         <StatCard title="Total Spent" value={`$${totalSpent.toFixed(2)}`} sublabel="Customer spend" Icon={MoneyIcon} />
-        <StatCard title="Avg per Customer" value={`$${(totalSpent / data.length || 0).toFixed(2)}`} sublabel="Average spend" Icon={AvgIcon} />
+        <StatCard title="Avg per Customer" value={`$${(customerCount ? totalSpent / customerCount : 0).toFixed(2)}`} sublabel="Average spend" Icon={AvgIcon} />
       </div>
 
       <div className="max-w-md">
@@ -63,11 +73,11 @@ export default function Customers() {
       <ListBody
         loading={loading}
         error={error}
-        onRetry={load}
+        onRetry={() => load()}
         isEmpty={data.length === 0}
         emptyText={search ? 'No customers match your search.' : 'No customers yet.'}
       >
-        <DataTable columns={columns} data={data} pageSize={10} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} />
       </ListBody>
     </div>
   );

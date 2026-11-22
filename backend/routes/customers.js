@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { loadOrders } from '../lib/data.js';
+import { selectAll } from '../lib/selectAll.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -12,11 +13,10 @@ router.get('/', async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
     const search = String(req.query.search || '').trim().toLowerCase();
 
-    const [c, orders] = await Promise.all([
-      supabase.from('customers').select('*'),
+    const [customers, orders] = await Promise.all([
+      selectAll(() => supabase.from('customers').select('*')),
       loadOrders(),
     ]);
-    if (c.error) throw c.error;
 
     const agg = new Map();
     for (const o of orders) {
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
       agg.set(o.customer_id, a);
     }
 
-    const all = c.data.map((x) => {
+    const all = customers.map((x) => {
       const a = agg.get(x.id) || { n: 0, spent: 0, last: null };
       return {
         id: x.id,
@@ -42,8 +42,12 @@ router.get('/', async (req, res) => {
     });
 
     const returning = all.filter((x) => x.total_orders > 1).length;
+    const totalSpent = all.reduce((s, x) => s + x.total_spent, 0);
     const stats = {
       total: all.length,
+      // over every customer, so the page cards do not depend on which rows are on screen
+      totalOrders: all.reduce((s, x) => s + x.total_orders, 0),
+      totalSpent: Math.round(totalSpent * 100) / 100,
       newCustomers: all.filter((x) => x.total_orders <= 1).length,
       returningPercent: all.length ? Math.round((returning / all.length) * 100) : 0,
     };

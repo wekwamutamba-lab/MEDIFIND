@@ -1,5 +1,6 @@
 import * as sb from './supabase.js';
 import { localParts } from './time.js';
+import { selectAll } from './selectAll.js';
 
 const supabase = sb.supabase || sb.default;
 
@@ -19,19 +20,16 @@ export const normPaymentStatus = (s) => {
 
 // Loads all orders joined with customer and product names, newest first
 export async function loadOrders() {
-  const [o, c, p] = await Promise.all([
-    supabase.from('orders').select('*').order('order_date', { ascending: false }),
-    supabase.from('customers').select('id, name'),
-    supabase.from('products').select('id, name, category, price'),
+  const [orders, customers, products] = await Promise.all([
+    selectAll(() => supabase.from('orders').select('*').order('order_date', { ascending: false })),
+    selectAll(() => supabase.from('customers').select('id, name')),
+    selectAll(() => supabase.from('products').select('id, name, category, price')),
   ]);
-  if (o.error) throw o.error;
-  if (c.error) throw c.error;
-  if (p.error) throw p.error;
 
-  const cMap = new Map(c.data.map((x) => [x.id, x]));
-  const pMap = new Map(p.data.map((x) => [x.id, x]));
+  const cMap = new Map(customers.map((x) => [x.id, x]));
+  const pMap = new Map(products.map((x) => [x.id, x]));
 
-  return o.data.map((r) => ({
+  return orders.map((r) => ({
     id: r.id,
     customer_id: r.customer_id,
     product_id: r.product_id,
@@ -48,8 +46,8 @@ export async function loadOrders() {
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Last 6 months, oldest first: [{ month: 'Jun', value }]
-// Revenue for the last 6 months, counted in the pharmacy's time zone
+// Revenue for the last 6 months, oldest first: [{ month: 'Jun', value }],
+// counted in the pharmacy's time zone
 export function byMonth(orders, now = new Date()) {
   const today = localParts(now);
   const buckets = [];
