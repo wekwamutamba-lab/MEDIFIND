@@ -21,7 +21,7 @@ const EMPTY = {
 };
 
 const inputCls =
-  'w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B]';
+  'w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime';
 
 export default function Suppliers() {
   const [rows, setRows] = useState([]);
@@ -154,7 +154,7 @@ export default function Suppliers() {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-2 rounded-xl bg-[#D9F26B] px-4 py-2.5 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c]"
+          className="flex items-center gap-2 rounded-xl bg-lime px-4 py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c]"
         >
           <Plus size={16} /> Add supplier
         </button>
@@ -180,7 +180,7 @@ export default function Suppliers() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search suppliers…"
-          className="w-full rounded-xl border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B]"
+          className="w-full rounded-xl border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
         />
       </div>
 
@@ -196,7 +196,7 @@ export default function Suppliers() {
           <div key={s.id} className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-lg font-bold text-[#0F3D2E]">{s.name}</div>
+                <div className="text-lg font-bold text-sidebar">{s.name}</div>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                   {s.address && (
                     <span className="flex items-center gap-1">
@@ -225,7 +225,7 @@ export default function Suppliers() {
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   onClick={() => toggleProducts(s)}
-                  className="flex items-center gap-1 rounded-lg bg-[#0F3D2E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
+                  className="flex items-center gap-1 rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
                 >
                   <Package size={14} /> {s.product_count} products
                 </button>
@@ -281,7 +281,7 @@ export default function Suppliers() {
                     />
                     <button
                       onClick={addProduct}
-                      className="shrink-0 rounded-xl bg-[#D9F26B] px-3 text-sm font-semibold text-[#0F3D2E]"
+                      className="shrink-0 rounded-xl bg-lime px-3 text-sm font-semibold text-sidebar"
                     >
                       Add
                     </button>
@@ -337,7 +337,7 @@ export default function Suppliers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#0F3D2E]">
+              <h3 className="text-lg font-bold text-sidebar">
                 {editingId ? 'Edit supplier' : 'Add supplier'}
               </h3>
               <button onClick={() => setForm(null)} aria-label="Close">
@@ -410,7 +410,7 @@ export default function Suppliers() {
               <button
                 onClick={save}
                 disabled={saving}
-                className="flex-1 rounded-xl bg-[#0F3D2E] py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="flex-1 rounded-xl bg-sidebar py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {saving ? 'Saving…' : 'Save supplier'}
               </button>

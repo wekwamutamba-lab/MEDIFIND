@@ -11,7 +11,7 @@ export default function ListBody({ loading, error, onRetry, isEmpty, emptyText =
             <button
               type="button"
               onClick={onRetry}
-              className="px-3 py-1.5 rounded text-sm text-[#0F3D2E] underline hover:text-[#0F3D2E]/80"
+              className="px-3 py-1.5 rounded text-sm text-sidebar underline hover:text-sidebar/80"
             >
               Retry
             </button>

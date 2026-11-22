@@ -59,16 +59,16 @@ export default function Login() {
   };
 
   const input =
-    'w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B] focus:border-[#D9F26B]';
+    'w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime focus:border-lime';
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0F3D2E] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-sidebar p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#D9F26B] text-sm font-bold text-[#0F3D2E]">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-lime text-sm font-bold text-sidebar">
             MF
           </div>
-          <h1 className="text-2xl font-bold text-[#0F3D2E]">
+          <h1 className="text-2xl font-bold text-sidebar">
             Medi<span className="text-[#7da800]">Find</span>
           </h1>
           <p className="text-sm text-gray-500">
@@ -113,7 +113,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-[#D9F26B] py-3 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:opacity-60"
+            className="w-full rounded-xl bg-lime py-3 text-sm font-semibold text-sidebar hover:bg-[#cfe85c] disabled:opacity-60"
           >
             {loading ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
@@ -125,7 +125,7 @@ export default function Login() {
             setError('');
             setInfo('');
           }}
-          className="mt-4 w-full text-center text-sm text-gray-600 hover:text-[#0F3D2E]"
+          className="mt-4 w-full text-center text-sm text-gray-600 hover:text-sidebar"
         >
           {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
         </button>
@@ -139,7 +139,7 @@ export default function Login() {
         <button
           onClick={demo}
           disabled={loading}
-          className="w-full rounded-xl border border-[#0F3D2E] py-3 text-sm font-semibold text-[#0F3D2E] hover:bg-[#0F3D2E] hover:text-white disabled:opacity-60"
+          className="w-full rounded-xl border border-sidebar py-3 text-sm font-semibold text-sidebar hover:bg-sidebar hover:text-white disabled:opacity-60"
         >
           Continue as Demo Pharmacist
         </button>

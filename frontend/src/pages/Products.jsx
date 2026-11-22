@@ -150,7 +150,7 @@ export default function Products() {
         <button
           type="button"
           onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
         >
           <Plus size={18} /> Add New Product
         </button>
@@ -166,7 +166,7 @@ export default function Products() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setCategory('')}
-            className={`px-3 py-1.5 rounded-full text-sm border text-gray-600 ${category ? 'border-gray-300 bg-white' : 'border-[#D9F26B] bg-[#D9F26B] text-[#0F3D2E] font-semibold'}`}
+            className={`px-3 py-1.5 rounded-full text-sm border text-gray-600 ${category ? 'border-gray-300 bg-white' : 'border-lime bg-lime text-sidebar font-semibold'}`}
           >
             All Categories
           </button>
@@ -174,7 +174,7 @@ export default function Products() {
             <button
               key={cat.name}
               onClick={() => setCategory(cat.name)}
-              className={`px-3 py-1.5 rounded-full text-sm border ${category === cat.name ? 'border-[#D9F26B] bg-[#D9F26B] text-[#0F3D2E] font-semibold' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 rounded-full text-sm border ${category === cat.name ? 'border-lime bg-lime text-sidebar font-semibold' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
             >
               {cat.name}
             </button>
@@ -192,7 +192,7 @@ export default function Products() {
         isEmpty={data.length === 0}
         emptyText={search || category ? 'No products match your search.' : 'No products yet. Use "Add New Product" to add your first one.'}
       >
-        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} actions={['edit', 'delete']} />
       </ListBody>
 
       {/* Category suggestions for the add and edit forms; any new category can be typed */}
@@ -206,36 +206,36 @@ export default function Products() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Medicine name</label>
-              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Category</label>
-              <input list="product-categories" placeholder="e.g. Antibiotic" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
+              <input list="product-categories" placeholder="e.g. Antibiotic" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Quantity</label>
-              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Price ($)</label>
-              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Expiry date</label>
-              <input type="date" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
+              <input type="date" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Description</label>
-              <textarea className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
+              <textarea className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setAddOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] font-semibold">Save Product</button>
+            <button type="submit" className="px-4 py-2 rounded-lg bg-lime text-sidebar font-semibold">Save Product</button>
           </div>
         </form>
       </Modal>
@@ -246,36 +246,36 @@ export default function Products() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Medicine name</label>
-              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Category</label>
-              <input list="product-categories" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
+              <input list="product-categories" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Quantity</label>
-              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+              <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Price ($)</label>
-              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Expiry date</label>
-              <input type="date" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
+              <input type="date" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Description</label>
-              <textarea className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
+              <textarea className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setEditOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] font-semibold">Save Changes</button>
+            <button type="submit" className="px-4 py-2 rounded-lg bg-lime text-sidebar font-semibold">Save Changes</button>
           </div>
         </form>
       </Modal>

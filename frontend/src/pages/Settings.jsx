@@ -26,11 +26,11 @@ export default function Settings() {
             onClick={() => setTab(t.key)}
             className={`px-6 py-3 text-sm font-medium transition rounded-l-xl ${
               tab === t.key
-                ? 'bg-[#0F3D2E] text-white'
+                ? 'bg-sidebar text-white'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             }`}
           >
-            <t.icon size={16} className={tab === t.key ? 'text-[#D9F26B]' : 'text-current'} />
+            <t.icon size={16} className={tab === t.key ? 'text-lime' : 'text-current'} />
             {t.label}
           </button>
         ))}
@@ -44,21 +44,21 @@ export default function Settings() {
                 <p className="font-semibold text-gray-900">Store name</p>
                 <p className="text-xs text-gray-500">Display name shown on receipts</p>
               </div>
-              <input className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" defaultValue="MediFind Pharmacy" />
+              <input className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" defaultValue="MediFind Pharmacy" />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-gray-900">Store location</p>
                 <p className="text-xs text-gray-500">Primary pharmacy address</p>
               </div>
-              <input className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" defaultValue="12 Main Street, Downtown" />
+              <input className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" defaultValue="12 Main Street, Downtown" />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-gray-900">Time zone</p>
                 <p className="text-xs text-gray-500">Used for order timestamps</p>
               </div>
-              <select className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]">
+              <select className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime">
                 <option>UTC</option>
                 <option>EST</option>
                 <option>PST</option>
@@ -71,8 +71,8 @@ export default function Settings() {
             {[['Order confirmations', 'Low stock alerts', 'Expiry reminders', 'Marketing emails']].flat().map((label) => (
               <div key={label} className="flex items-center justify-between">
                 <p className="text-gray-700 text-sm">{label}</p>
-                <button className="w-10 h-5 rounded-full border border-gray-300 bg-[#D9F26B] relative focus:outline-none">
-                  <span className="block w-3 h-3 rounded-full bg-[#0F3D2E] absolute left-1 top-1"></span>
+                <button className="w-10 h-5 rounded-full border border-gray-300 bg-lime relative focus:outline-none">
+                  <span className="block w-3 h-3 rounded-full bg-sidebar absolute left-1 top-1"></span>
                 </button>
               </div>
             ))}
@@ -81,14 +81,14 @@ export default function Settings() {
         {tab === 'appearance' && (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <Cpu size={20} className="text-[#0F3D2E]" />
+              <Cpu size={20} className="text-sidebar" />
               <div>
                 <p className="font-semibold text-gray-900">Theme</p>
                 <p className="text-xs text-gray-500">Dark green sidebar, lime accents</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Zap size={20} className="text-[#0F3D2E]" />
+              <Zap size={20} className="text-sidebar" />
               <div>
                 <p className="font-semibold text-gray-900">Font</p>
                 <p className="text-xs text-gray-500">Poppins</p>
@@ -103,15 +103,15 @@ export default function Settings() {
                 <p className="font-semibold text-gray-900">Change password</p>
                 <p className="text-xs text-gray-500">Update your account password</p>
               </div>
-              <button className="px-4 py-2 rounded-lg text-sm text-[#0F3D2E] hover:bg-[#0F3D2E]/10">Change</button>
+              <button className="px-4 py-2 rounded-lg text-sm text-sidebar hover:bg-sidebar/10">Change</button>
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-gray-900">Two-factor auth</p>
                 <p className="text-xs text-gray-500">Add an extra layer of security</p>
               </div>
-              <button className="w-10 h-5 rounded-full border border-gray-300 bg-[#D9F26B] relative focus:outline-none">
-                <span className="block w-3 h-3 rounded-full bg-[#0F3D2E] absolute left-1 top-1"></span>
+              <button className="w-10 h-5 rounded-full border border-gray-300 bg-lime relative focus:outline-none">
+                <span className="block w-3 h-3 rounded-full bg-sidebar absolute left-1 top-1"></span>
               </button>
             </div>
           </div>

@@ -30,7 +30,7 @@ const FAQ = [
 ];
 
 const inputCls =
-  'w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B]';
+  'w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime';
 
 export default function Help() {
   const [open, setOpen] = useState(0);
@@ -50,7 +50,9 @@ export default function Help() {
     }
   };
 
+  // Loads the page data once when it opens; load() sets loading/error state
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
 
@@ -75,7 +77,7 @@ export default function Help() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0F3D2E] text-[#D9F26B]">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sidebar text-lime">
           <LifeBuoy size={22} />
         </div>
         <div>
@@ -136,7 +138,7 @@ export default function Help() {
           <button
             type="submit"
             disabled={sending}
-            className="rounded-xl bg-[#D9F26B] px-6 py-2.5 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:opacity-60"
+            className="rounded-xl bg-lime px-6 py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c] disabled:opacity-60"
           >
             {sending ? 'Sending…' : 'Send message'}
           </button>

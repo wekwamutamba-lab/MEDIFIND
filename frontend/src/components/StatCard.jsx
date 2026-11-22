@@ -1,10 +1,10 @@
 export default function StatCard({ title, value, sublabel, Icon, variant = 'default' }) {
   const green = variant === 'green';
   return (
-    <div className={`rounded-2xl p-5 shadow-sm border ${green ? 'bg-[#0F3D2E] text-white border-[#0F3D2E]/40' : 'bg-white border-gray-200 text-gray-900'}`}>
+    <div className={`rounded-2xl p-5 shadow-sm border ${green ? 'bg-sidebar text-white border-sidebar/40' : 'bg-white border-gray-200 text-gray-900'}`}>
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className={`p-2 rounded-lg ${green ? 'bg-[#D9F26B] text-[#0F3D2E]' : 'bg-gray-100 text-gray-500'}`}>
+          <div className={`p-2 rounded-lg ${green ? 'bg-lime text-sidebar' : 'bg-gray-100 text-gray-500'}`}>
             <Icon size={20} />
           </div>
         )}

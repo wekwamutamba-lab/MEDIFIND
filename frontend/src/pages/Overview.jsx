@@ -32,7 +32,7 @@ function MedImg({ name, className = '' }) {
   if (failed) {
     return (
       <div
-        className={`flex items-center justify-center rounded-xl bg-[#D9F26B]/40 text-[#0F3D2E] ${className}`}
+        className={`flex items-center justify-center rounded-xl bg-lime/40 text-sidebar ${className}`}
       >
         <Pill size={22} />
       </div>
@@ -52,13 +52,13 @@ function Stat({ icon: Icon, label, value, sub, dark }) {
   return (
     <div
       className={`rounded-2xl p-5 shadow-sm ${
-        dark ? 'bg-[#0F3D2E] text-white' : 'bg-white text-gray-900'
+        dark ? 'bg-sidebar text-white' : 'bg-white text-gray-900'
       }`}
     >
       <div className="flex items-center gap-3">
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-            dark ? 'bg-[#D9F26B] text-[#0F3D2E]' : 'bg-gray-100 text-gray-600'
+            dark ? 'bg-lime text-sidebar' : 'bg-gray-100 text-gray-600'
           }`}
         >
           <Icon size={20} />
@@ -66,7 +66,7 @@ function Stat({ icon: Icon, label, value, sub, dark }) {
         <div className={`text-sm ${dark ? 'text-white/70' : 'text-gray-500'}`}>{label}</div>
       </div>
       <div className="mt-4 text-3xl font-bold tracking-tight">{value}</div>
-      <div className={`mt-1 text-xs ${dark ? 'text-[#D9F26B]' : 'text-gray-400'}`}>{sub}</div>
+      <div className={`mt-1 text-xs ${dark ? 'text-lime' : 'text-gray-400'}`}>{sub}</div>
     </div>
   );
 }
@@ -102,7 +102,9 @@ export default function Overview() {
     }
   };
 
+  // Loads the page data once when it opens; load() sets loading/error state
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
 
@@ -179,7 +181,7 @@ export default function Overview() {
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0F3D2E] text-[#D9F26B]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sidebar text-lime">
               <Sparkles size={22} />
             </div>
             <div>
@@ -192,7 +194,7 @@ export default function Overview() {
           <button
             onClick={runInsights}
             disabled={insLoading}
-            className="rounded-xl bg-[#D9F26B] px-5 py-2.5 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:opacity-60"
+            className="rounded-xl bg-lime px-5 py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c] disabled:opacity-60"
           >
             {insLoading ? 'Thinking…' : 'Generate Insights'}
           </button>
@@ -231,7 +233,7 @@ export default function Overview() {
                             `/restock?q=${encodeURIComponent(`${r.suggestedQty} ${r.product}`)}`
                           )
                         }
-                        className="shrink-0 rounded-lg bg-[#0F3D2E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
+                        className="shrink-0 rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
                       >
                         Find suppliers
                       </button>
@@ -317,7 +319,7 @@ export default function Overview() {
                       </div>
                       <div className="mt-1 h-2 rounded-full bg-gray-200">
                         <div
-                          className="h-2 rounded-full bg-[#0F3D2E]"
+                          className="h-2 rounded-full bg-sidebar"
                           style={{ width: `${(Number(t.value) / maxTop) * 100}%` }}
                         />
                       </div>

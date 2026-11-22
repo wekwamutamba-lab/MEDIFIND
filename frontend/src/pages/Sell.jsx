@@ -24,7 +24,7 @@ async function call(method, path, body) {
 }
 
 const inputCls =
-  'w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B]';
+  'w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime';
 
 const statusStyle = {
   'In Stock': 'bg-green-100 text-green-700',
@@ -73,14 +73,12 @@ export default function Sell() {
     };
   }, [pq, refreshKey]);
 
-  // Existing customer suggestions
+  // Existing customer suggestions, only once at least 2 letters are typed
+  const shownMatches = cName.trim().length >= 2 ? matches : [];
   useEffect(() => {
     if (picked) return undefined;
     const q = cName.trim();
-    if (q.length < 2) {
-      setMatches([]);
-      return undefined;
-    }
+    if (q.length < 2) return undefined; // nothing is shown under 2 letters (see shownMatches)
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
@@ -187,7 +185,7 @@ export default function Sell() {
           <div
             className={`mt-4 rounded-xl px-4 py-3 text-sm ${
               receipt.customer_created
-                ? 'bg-[#D9F26B]/40 text-[#0F3D2E]'
+                ? 'bg-lime/40 text-sidebar'
                 : 'bg-gray-50 text-gray-700'
             }`}
           >
@@ -219,14 +217,14 @@ export default function Sell() {
 
           <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
             <span className="text-sm text-gray-500">Paid by {receipt.payment_method}</span>
-            <span className="text-xl font-bold text-[#0F3D2E]">{money(receipt.total)}</span>
+            <span className="text-xl font-bold text-sidebar">{money(receipt.total)}</span>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
             onClick={newSale}
-            className="rounded-xl bg-[#D9F26B] px-5 py-2.5 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c]"
+            className="rounded-xl bg-lime px-5 py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c]"
           >
             New sale
           </button>
@@ -285,7 +283,7 @@ export default function Sell() {
               value={pq}
               onChange={(e) => setPq(e.target.value)}
               placeholder="Search medicines…"
-              className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B]"
+              className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
             />
           </div>
 
@@ -315,13 +313,13 @@ export default function Sell() {
                     </span>
                   </div>
                   <div className="my-3 flex items-end justify-between">
-                    <div className="text-lg font-bold text-[#0F3D2E]">{money(p.price)}</div>
+                    <div className="text-lg font-bold text-sidebar">{money(p.price)}</div>
                     <div className="text-xs text-gray-500">{p.quantity} in stock</div>
                   </div>
                   <button
                     onClick={() => addToCart(p)}
                     disabled={out}
-                    className="mt-auto flex items-center justify-center gap-1 rounded-xl bg-[#0F3D2E] py-2 text-sm font-semibold text-white hover:bg-[#145540] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-auto flex items-center justify-center gap-1 rounded-xl bg-sidebar py-2 text-sm font-semibold text-white hover:bg-[#145540] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Plus size={14} /> {out ? 'Out of stock' : 'Add to sale'}
                   </button>
@@ -393,7 +391,7 @@ export default function Sell() {
 
             <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
               <span className="text-sm text-gray-500">Total</span>
-              <span className="text-2xl font-bold text-[#0F3D2E]">{money(total)}</span>
+              <span className="text-2xl font-bold text-sidebar">{money(total)}</span>
             </div>
           </div>
 
@@ -412,12 +410,12 @@ export default function Sell() {
                   setPicked(false);
                 }}
               />
-              {matches.length > 0 && !picked && (
+              {shownMatches.length > 0 && !picked && (
                 <div className="absolute left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
                   <div className="px-3 py-1 text-[11px] font-semibold uppercase text-gray-400">
                     Existing customers
                   </div>
-                  {matches.map((c) => (
+                  {shownMatches.map((c) => (
                     <button
                       key={c.id}
                       onClick={() => pickCustomer(c)}
@@ -471,7 +469,7 @@ export default function Sell() {
                   onClick={() => setMethod(m)}
                   className={`rounded-xl border py-2 text-sm font-medium ${
                     method === m
-                      ? 'border-[#0F3D2E] bg-[#0F3D2E] text-white'
+                      ? 'border-sidebar bg-sidebar text-white'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -483,7 +481,7 @@ export default function Sell() {
             <button
               onClick={checkout}
               disabled={submitting || cart.length === 0}
-              className="mt-5 w-full rounded-xl bg-[#D9F26B] py-3 text-sm font-bold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 w-full rounded-xl bg-lime py-3 text-sm font-bold text-sidebar hover:bg-[#cfe85c] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Completing…' : `Complete sale · ${money(total)}`}
             </button>

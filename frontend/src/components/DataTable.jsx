@@ -10,6 +10,8 @@ export default function DataTable({
   data,
   pageSize = 10,
   onAction,
+  // which row buttons to show: only pass the ones the page actually handles
+  actions = ['edit'],
   total: serverTotal,
   page: serverPage,
   onPageChange,
@@ -55,7 +57,7 @@ export default function DataTable({
                     return (
                       <td key="actions" className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {row.actions || ['view', 'edit', 'delete'].map((action) => {
+                          {(row.actions || actions).map((action) => {
                             const Icon =
                               action === 'view' ? ViewIcon :
                               action === 'edit' ? EditIcon : TrashIcon;
@@ -64,7 +66,7 @@ export default function DataTable({
                                 key={action}
                                 type="button"
                                 onClick={() => onAction && onAction(action, row)}
-                                className="p-1.5 rounded text-gray-500 hover:text-[#0F3D2E] hover:bg-gray-100 transition"
+                                className="p-1.5 rounded text-gray-500 hover:text-sidebar hover:bg-gray-100 transition"
                                 title={action}
                               >
                                 <Icon size={16} />

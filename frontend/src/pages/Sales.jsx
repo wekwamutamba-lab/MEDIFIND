@@ -32,13 +32,13 @@ function Stat({ icon: Icon, label, value, sub, dark }) {
   return (
     <div
       className={`rounded-2xl p-5 shadow-sm ${
-        dark ? 'bg-[#0F3D2E] text-white' : 'bg-white text-gray-900'
+        dark ? 'bg-sidebar text-white' : 'bg-white text-gray-900'
       }`}
     >
       <div className="flex items-center gap-3">
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-            dark ? 'bg-[#D9F26B] text-[#0F3D2E]' : 'bg-gray-100 text-gray-600'
+            dark ? 'bg-lime text-sidebar' : 'bg-gray-100 text-gray-600'
           }`}
         >
           <Icon size={20} />
@@ -46,7 +46,7 @@ function Stat({ icon: Icon, label, value, sub, dark }) {
         <div className={`text-sm ${dark ? 'text-white/70' : 'text-gray-500'}`}>{label}</div>
       </div>
       <div className="mt-4 break-words text-2xl font-bold tracking-tight xl:text-3xl">{value}</div>
-      <div className={`mt-1 text-xs ${dark ? 'text-[#D9F26B]' : 'text-gray-400'}`}>{sub}</div>
+      <div className={`mt-1 text-xs ${dark ? 'text-lime' : 'text-gray-400'}`}>{sub}</div>
     </div>
   );
 }
@@ -83,7 +83,9 @@ export default function Sales() {
     }
   };
 
+  // Loads the page data once when it opens; load() sets loading/error state
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
 
@@ -266,7 +268,7 @@ export default function Sales() {
                   </div>
                   <div className="mt-1.5 h-2 rounded-full bg-gray-200">
                     <div
-                      className="h-2 rounded-full bg-[#0F3D2E]"
+                      className="h-2 rounded-full bg-sidebar"
                       style={{ width: `${(Number(p.revenue) / maxProd) * 100}%` }}
                     />
                   </div>

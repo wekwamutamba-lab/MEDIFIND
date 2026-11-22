@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
 import { supabase } from '../lib/supabase';
@@ -40,7 +40,7 @@ const MAIN_LINKS = [
 const linkClass = (active) =>
   `w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition ${
     active
-      ? 'bg-[#D9F26B] text-[#0F3D2E] font-semibold'
+      ? 'bg-lime text-sidebar font-semibold'
       : 'text-white/80 hover:bg-white/10 hover:text-white'
   }`;
 
@@ -53,8 +53,7 @@ export default function Layout() {
   const [notifs, setNotifs] = useState([]);
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState(null);
-  const [searching, setSearching] = useState(false);
+  const [fetched, setFetched] = useState(null); // { q, data } from the last search
   const [searchOpen, setSearchOpen] = useState(false);
 
   const navigate = useNavigate();
@@ -114,30 +113,29 @@ export default function Layout() {
       .catch(() => {});
   }, [ready]);
 
-  // Live search (waits 300ms after you stop typing)
+  // Live search (waits 300ms after you stop typing). The answer is kept with the
+  // text it was for, so results and "Searching…" are worked out from that and
+  // results for old text never show.
+  const liveQuery = query.trim();
+  const results = liveQuery.length >= 2 && fetched?.q === liveQuery ? fetched.data : null;
+  const searching = liveQuery.length >= 2 && fetched?.q !== liveQuery;
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setResults(null);
-      return;
-    }
-    setSearching(true);
+    if (liveQuery.length < 2) return undefined;
     const t = setTimeout(async () => {
+      let data;
       try {
-        setResults(await globalSearch(q));
+        data = await globalSearch(liveQuery);
       } catch {
-        setResults({ products: [], customers: [], orders: [] });
-      } finally {
-        setSearching(false);
+        data = { products: [], customers: [], orders: [] };
       }
+      setFetched({ q: liveQuery, data });
     }, 300);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [liveQuery]);
 
   const go = (path) => {
     setSearchOpen(false);
     setQuery('');
-    setResults(null);
     navigate(path);
   };
 
@@ -164,17 +162,17 @@ export default function Layout() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-60 bg-[#0F3D2E] text-white flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-40 w-60 bg-sidebar text-white flex flex-col transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}
         aria-label="Main navigation"
       >
         <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-[#D9F26B] text-[#0F3D2E] flex items-center justify-center font-bold text-xs">
+          <div className="w-8 h-8 rounded-xl bg-lime text-sidebar flex items-center justify-center font-bold text-xs">
             MF
           </div>
           <span className="font-bold text-lg tracking-tight leading-none">
-            Medi<span className="text-[#D9F26B]">Find</span>
+            Medi<span className="text-lime">Find</span>
           </span>
         </div>
 
@@ -225,7 +223,7 @@ export default function Layout() {
                 closeMenu();
                 navigate('/upgrade');
               }}
-              className="w-full py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] text-xs font-semibold hover:bg-[#cfe85c] transition"
+              className="w-full py-2 rounded-lg bg-lime text-sidebar text-xs font-semibold hover:bg-[#cfe85c] transition"
             >
               Go Pro
             </button>
@@ -265,7 +263,7 @@ export default function Layout() {
               }}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search products, orders, customers…"
-              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D9F26B] focus:border-[#D9F26B]"
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime focus:border-lime"
             />
 
             {searchOpen && query.trim().length >= 2 && (
@@ -402,8 +400,8 @@ export default function Layout() {
               )}
             </div>
 
-            <div className="ml-1 flex max-w-[200px] items-center gap-2 rounded-full bg-[#D9F26B] px-3 py-1.5 text-xs font-semibold text-[#0F3D2E]">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-[#0F3D2E]" />
+            <div className="ml-1 flex max-w-[200px] items-center gap-2 rounded-full bg-lime px-3 py-1.5 text-xs font-semibold text-sidebar">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-sidebar" />
               <span className="truncate">{displayName || 'Pharmacist'}</span>
             </div>
           </div>
@@ -411,7 +409,10 @@ export default function Layout() {
 
         <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
           <ErrorBoundary fallback="The page crashed while rendering.">
-            <Outlet />
+            {/* each page is downloaded the first time it is opened */}
+            <Suspense fallback={<div className="py-16 text-center text-sm text-gray-400">Loading…</div>}>
+              <Outlet />
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>

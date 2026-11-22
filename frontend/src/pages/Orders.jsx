@@ -133,7 +133,7 @@ export default function Orders() {
         <button
           type="button"
           onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D9F26B] text-[#0F3D2E] text-sm font-semibold hover:bg-[#d4ec5f] transition"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
         >
           <Plus size={18} /> Add New Order
         </button>
@@ -150,12 +150,12 @@ export default function Orders() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setStatus('')}
-            className={`px-3 py-1.5 rounded-full text-sm border ${status ? 'border-gray-300 bg-white text-gray-600' : 'border-[#D9F26B] bg-[#D9F26B] text-[#0F3D2E] font-semibold'}`}
+            className={`px-3 py-1.5 rounded-full text-sm border ${status ? 'border-gray-300 bg-white text-gray-600' : 'border-lime bg-lime text-sidebar font-semibold'}`}
           >
             All Status
           </button>
           {STATUSES.map((s) => (
-            <button key={s} onClick={() => setStatus(s)} className={`px-3 py-1.5 rounded-full text-sm border ${status === s ? 'border-[#D9F26B] bg-[#D9F26B] text-[#0F3D2E] font-semibold' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
+            <button key={s} onClick={() => setStatus(s)} className={`px-3 py-1.5 rounded-full text-sm border ${status === s ? 'border-lime bg-lime text-sidebar font-semibold' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
               {s}
             </button>
           ))}
@@ -172,7 +172,7 @@ export default function Orders() {
         isEmpty={data.length === 0}
         emptyText={search || status ? 'No orders match your search.' : 'No orders yet.'}
       >
-        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} actions={['edit']} />
       </ListBody>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Order">
@@ -181,23 +181,23 @@ export default function Orders() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Customer name</label>
-              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} required />
+              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Medicine</label>
-              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required />
+              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required />
             </div>
           </div>
           <div className="space-y-2">
             <label className="text-xs font-semibold text-gray-600">Quantity</label>
-            <input type="number" min="1" step="1" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+            <input type="number" min="1" step="1" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
           </div>
           <p className="text-xs text-gray-500">
             The total is worked out from the medicine&apos;s price. New orders start as Pending; change the status from the order list.
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setAddOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] font-semibold">Create Order</button>
+            <button type="submit" className="px-4 py-2 rounded-lg bg-lime text-sidebar font-semibold">Create Order</button>
           </div>
         </form>
       </Modal>
@@ -234,7 +234,7 @@ export default function Orders() {
           </div>
           <div className="space-y-2">
             <label className="text-xs font-semibold text-gray-600">Status</label>
-            <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#D9F26B]" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               <option value="Pending">Pending</option>
               <option value="Completed">Completed</option>
               <option value="Cancelled">Cancelled</option>
@@ -243,7 +243,7 @@ export default function Orders() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setStatusOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded-lg bg-[#D9F26B] text-[#0F3D2E] font-semibold">Save Changes</button>
+            <button type="submit" className="px-4 py-2 rounded-lg bg-lime text-sidebar font-semibold">Save Changes</button>
           </div>
         </form>
       </Modal>

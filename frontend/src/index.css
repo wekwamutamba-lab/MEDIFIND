@@ -26,9 +26,9 @@ body {
 .dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300 { border-color: #2a312e !important; }
 .dark h1, .dark h2, .dark h3 { color: #e5e7eb; }
 .dark input, .dark select, .dark textarea { background-color: #151a18; color: #e5e7eb; }
-.dark .text-\[\#0F3D2E\] { color: #D9F26B; }
-.dark .bg-\[\#D9F26B\].text-\[\#0F3D2E\],
-.dark .bg-\[\#D9F26B\] .text-\[\#0F3D2E\] { color: #0F3D2E; }
+.dark .text-sidebar { color: #D9F26B; }
+.dark .bg-lime.text-sidebar,
+.dark .bg-lime .text-sidebar { color: #0F3D2E; }
 
 /* ---------- Medicine animation ---------- */
 @keyframes pill-sway {

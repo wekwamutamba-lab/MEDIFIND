@@ -104,13 +104,13 @@ export default function Upgrade() {
         </div>
 
         {/* Pro */}
-        <div className="flex flex-col rounded-2xl bg-[#0F3D2E] p-6 text-white shadow-sm">
+        <div className="flex flex-col rounded-2xl bg-sidebar p-6 text-white shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-lg font-bold">
-              <Sparkles size={18} className="text-[#D9F26B]" /> Pro
+              <Sparkles size={18} className="text-lime" /> Pro
             </div>
             {plan === 'pro' && (
-              <span className="rounded-full bg-[#D9F26B] px-3 py-1 text-xs font-bold text-[#0F3D2E]">
+              <span className="rounded-full bg-lime px-3 py-1 text-xs font-bold text-sidebar">
                 Current plan
               </span>
             )}
@@ -122,7 +122,7 @@ export default function Upgrade() {
           <ul className="my-5 space-y-3 text-sm">
             {PRO.map((f) => (
               <li key={f} className="flex items-start gap-2">
-                <Check size={16} className="mt-0.5 shrink-0 text-[#D9F26B]" />
+                <Check size={16} className="mt-0.5 shrink-0 text-lime" />
                 {f}
               </li>
             ))}
@@ -130,7 +130,7 @@ export default function Upgrade() {
           <button
             onClick={() => change('pro')}
             disabled={saving || plan === 'pro'}
-            className="mt-auto rounded-xl bg-[#D9F26B] py-2.5 text-sm font-semibold text-[#0F3D2E] hover:bg-[#cfe85c] disabled:opacity-60"
+            className="mt-auto rounded-xl bg-lime py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c] disabled:opacity-60"
           >
             {saving ? 'Please wait…' : plan === 'pro' ? 'You are on Pro' : 'Upgrade to Pro'}
           </button>

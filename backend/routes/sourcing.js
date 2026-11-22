@@ -1,24 +1,15 @@
 import { Router } from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as sb from '../lib/supabase.js';
 import { adjustStock, exactIlike } from '../lib/stock.js';
 import { selectAll } from '../lib/selectAll.js';
+import { askGemini } from '../lib/gemini.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const CENTER = { lat: -17.8292, lng: 31.0522 };
 const DISCLAIMER =
   'Supplier prices and stock are indicative. Confirm with the supplier before ordering. MediFind does not give medical advice.';
 const STOP = new Set(['need', 'urgently', 'urgent', 'please', 'looking', 'want', 'have', 'with', 'some', 'from', 'supplier', 'suppliers', 'order', 'stock', 'restock', 'tablets', 'units', 'boxes', 'packs', 'running', 'low', 'find']);
-
-async function askGemini(system, text) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('No GEMINI_API_KEY');
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: MODEL, systemInstruction: system });
-  const out = await model.generateContent(text);
-  return JSON.parse(out.response.text().replace(/```json|```/g, '').trim());
-}
 
 function haversine(lat1, lng1, lat2, lng2) {
   const r = (d) => (d * Math.PI) / 180;
