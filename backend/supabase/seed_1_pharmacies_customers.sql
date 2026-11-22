@@ -5,7 +5,7 @@ INSERT INTO pharmacies (name, address, lat, lng) VALUES
 ('Mbare Medicentre', '76 Mbare Muslake, Harare', -17.8450, 31.0500),
 ('Eastgate Drug Store', '22 Borrowdale Rd, Harare', -17.8100, 31.0400);
 
--- Customers (20 rows)
+-- Customers (19 rows)
 INSERT INTO customers (name, phone, email, address) VALUES
 ('Aaron Masuka', '+263712345678', 'aaron.m@test.com', 'Marlborough, Harare'),
 ('Betty Chikosi', '+263712345679', 'betty.c@test.com', 'Mufakose, Harare'),
