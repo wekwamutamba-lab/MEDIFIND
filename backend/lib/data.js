@@ -41,6 +41,8 @@ export async function loadOrders() {
     order_date: r.order_date,
     payment_status: normPaymentStatus(r.payment_status),
     order_status: normOrderStatus(r.status),
+    cashier_id: r.cashier_id || null,
+    cashier_name: r.cashier_name || null,
   }));
 }
 

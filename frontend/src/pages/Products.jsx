@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
+import { useAccess } from '../lib/access';
 
 const EMPTY_FORM = { name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' };
 const PAGE_SIZE = 10;
@@ -62,7 +63,9 @@ export default function Products() {
 
   const goToPage = (p) => { setPage(p); load(p); };
 
-  const columns = [
+  const { isAdmin } = useAccess(); // till operators can look products up but not change them
+
+  const allColumns = [
     { key: 'sku', label: 'SKU', render: (row) => row.sku || row.id || '—' },
     { key: 'name', label: 'Medicine', render: (row) => row.name || '—' },
     { key: 'category', label: 'Category', render: (row) => row.category || '—' },
@@ -72,6 +75,7 @@ export default function Products() {
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status || 'In Stock'} /> },
     { key: 'actions', label: 'Actions' },
   ];
+  const columns = isAdmin ? allColumns : allColumns.filter((c) => c.key !== 'actions');
 
   const handleAction = async (action, row) => {
     if (action === 'edit') {
@@ -147,13 +151,15 @@ export default function Products() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
-        >
-          <Plus size={18} /> Add New Product
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={openAdd}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
+          >
+            <Plus size={18} /> Add New Product
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -192,7 +198,7 @@ export default function Products() {
         isEmpty={data.length === 0}
         emptyText={search || category ? 'No products match your search.' : 'No products yet. Use "Add New Product" to add your first one.'}
       >
-        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} actions={['edit', 'delete']} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} actions={isAdmin ? ['edit', 'delete'] : []} />
       </ListBody>
 
       {/* Category suggestions for the add and edit forms; any new category can be typed */}

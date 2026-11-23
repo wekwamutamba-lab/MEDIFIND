@@ -1,8 +1,10 @@
 import { useState, useEffect, Suspense } from 'react';
-import { NavLink, useNavigate, Outlet } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, Navigate, Outlet } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
 import { supabase } from '../lib/supabase';
-import { getOverview } from '../lib/api';
+import { getOverview, getMe, getStaff } from '../lib/api';
+import { AccessContext, tillMayOpen } from '../lib/access';
+import AccessGate from './AccessGate';
 import { globalSearch } from '../lib/extra';
 import {
   Menu,
@@ -23,19 +25,24 @@ import {
   Sun,
   Moon,
   Receipt,
+  UserCog,
 } from 'lucide-react';
 
 const MAIN_LINKS = [
   { name: 'Overview', path: '/overview', icon: Home },
   { name: 'Products', path: '/products', icon: Package },
   { name: 'New Sale', path: '/sell', icon: Receipt },
-  { name: 'Orders', path: '/orders', icon: ShoppingCart },
+  { name: 'Orders', tillName: 'My Sales', path: '/orders', icon: ShoppingCart },
   { name: 'Sales', path: '/sales', icon: Banknote },
   { name: 'Customers', path: '/customers', icon: Users },
   { name: 'Payments', path: '/payments', icon: CreditCard },
   { name: 'Restock', path: '/restock', icon: Truck },
   { name: 'Suppliers', path: '/suppliers', icon: Building2 },
+  { name: 'Staff', path: '/staff', icon: UserCog },
 ];
+
+// Till operators see New Sale first
+const TILL_ORDER = ['/sell', '/products', '/customers', '/orders'];
 
 const linkClass = (active) =>
   `w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition ${
@@ -47,7 +54,9 @@ const linkClass = (active) =>
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ready, setReady] = useState(false);
-  const [displayName, setDisplayName] = useState('');
+  const [me, setMe] = useState(null); // GET /api/me: { user, staff }
+  const [meError, setMeError] = useState('');
+  const [pendingStaff, setPendingStaff] = useState(0);
   const [dark, setDark] = useState(() => localStorage.getItem('mf_theme') === 'dark');
   const [bellOpen, setBellOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
@@ -57,6 +66,9 @@ export default function Layout() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const active = me?.staff?.status === 'active';
+  const isAdmin = active && me.staff.role === 'admin';
 
   // Login check
   useEffect(() => {
@@ -64,8 +76,6 @@ export default function Layout() {
       if (!data.session) {
         navigate('/login', { replace: true });
       } else {
-        const u = data.session.user;
-        setDisplayName(u.user_metadata?.full_name || u.email || '');
         setReady(true);
       }
     });
@@ -83,9 +93,33 @@ export default function Layout() {
     localStorage.setItem('mf_theme', dark ? 'dark' : 'light');
   }, [dark]);
 
-  // Notifications
+  // Who am I: role and approval status
+  const fetchMe = () =>
+    getMe()
+      .then((res) => {
+        setMe(res);
+        setMeError('');
+      })
+      .catch((err) => setMeError(err.message || 'Could not load your account'));
+  const loadMe = () => {
+    setMeError('');
+    fetchMe();
+  };
   useEffect(() => {
-    if (!ready) return;
+    if (ready) fetchMe();
+  }, [ready]);
+
+  // Admins: number of people waiting for approval, shown next to Staff
+  useEffect(() => {
+    if (!isAdmin) return;
+    getStaff()
+      .then((res) => setPendingStaff((res?.staff ?? []).filter((x) => x.status === 'pending').length))
+      .catch(() => {});
+  }, [isAdmin, location.pathname]);
+
+  // Notifications (admins only: they come from the overview figures)
+  useEffect(() => {
+    if (!isAdmin) return;
     getOverview()
       .then((res) => {
         const list = [];
@@ -111,7 +145,7 @@ export default function Layout() {
         setNotifs(list);
       })
       .catch(() => {});
-  }, [ready]);
+  }, [isAdmin]);
 
   // Live search (waits 300ms after you stop typing). The answer is kept with the
   // text it was for, so results and "Searching…" are worked out from that and
@@ -146,9 +180,41 @@ export default function Layout() {
 
   const closeMenu = () => setSidebarOpen(false);
 
-  if (!ready) {
+  if (!ready || (!me && !meError)) {
     return <div className="p-8 text-gray-500">Loading…</div>;
   }
+
+  if (meError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f3f4f6] p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <h1 className="text-lg font-bold text-sidebar">Could not load your account</h1>
+          <p className="mt-2 text-sm text-gray-500">{meError}</p>
+          <div className="mt-6 flex gap-2">
+            <button onClick={loadMe} className="flex-1 rounded-xl bg-lime py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c]">
+              Try again
+            </button>
+            <button onClick={handleLogout} className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+              Log out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!active) {
+    return <AccessGate me={me} onChange={setMe} onLogout={handleLogout} />;
+  }
+
+  // Till operators may only open their own pages; anything else sends them to New Sale
+  if (!isAdmin && !tillMayOpen(location.pathname)) {
+    return <Navigate to="/sell" replace />;
+  }
+
+  const links = isAdmin ? MAIN_LINKS : TILL_ORDER.map((p) => MAIN_LINKS.find((l) => l.path === p));
+  const displayName = me?.user?.name || me?.user?.email || '';
+  const access = { me, role: me.staff.role, isAdmin };
 
   const total =
     (results?.products?.length ?? 0) +
@@ -177,7 +243,7 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {MAIN_LINKS.map((item) => (
+          {links.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
@@ -185,7 +251,12 @@ export default function Layout() {
               className={({ isActive }) => linkClass(isActive)}
             >
               <item.icon size={18} />
-              {item.name}
+              <span className="flex-1">{!isAdmin && item.tillName ? item.tillName : item.name}</span>
+              {item.path === '/staff' && pendingStaff > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {pendingStaff}
+                </span>
+              )}
             </NavLink>
           ))}
 
@@ -200,17 +271,20 @@ export default function Layout() {
             Help &amp; Support
           </NavLink>
 
-          <NavLink
-            to="/settings"
-            onClick={closeMenu}
-            className={({ isActive }) => linkClass(isActive)}
-          >
-            <Sliders size={18} />
-            Settings
-          </NavLink>
+          {isAdmin && (
+            <NavLink
+              to="/settings"
+              onClick={closeMenu}
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Sliders size={18} />
+              Settings
+            </NavLink>
+          )}
         </nav>
 
         <div className="shrink-0 p-3 space-y-2">
+          {isAdmin && (
           <div className="bg-white/10 border border-white/10 rounded-xl p-3 text-white">
             <div className="text-xs font-semibold uppercase tracking-wider mb-1">
               Upgrade to Pro
@@ -228,6 +302,7 @@ export default function Layout() {
               Go Pro
             </button>
           </div>
+          )}
 
           <button
             onClick={handleLogout}
@@ -356,6 +431,7 @@ export default function Layout() {
               {dark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
+            {isAdmin && (
             <div className="relative">
               <button
                 onClick={() => setBellOpen((o) => !o)}
@@ -399,10 +475,14 @@ export default function Layout() {
                 </>
               )}
             </div>
+            )}
 
             <div className="ml-1 flex max-w-[200px] items-center gap-2 rounded-full bg-lime px-3 py-1.5 text-xs font-semibold text-sidebar">
               <span className="h-2 w-2 shrink-0 rounded-full bg-sidebar" />
               <span className="truncate">{displayName || 'Pharmacist'}</span>
+              <span className="shrink-0 rounded-full bg-sidebar/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+                {isAdmin ? 'Admin' : 'Till'}
+              </span>
             </div>
           </div>
         </header>
@@ -411,7 +491,9 @@ export default function Layout() {
           <ErrorBoundary fallback="The page crashed while rendering.">
             {/* each page is downloaded the first time it is opened */}
             <Suspense fallback={<div className="py-16 text-center text-sm text-gray-400">Loading…</div>}>
-              <Outlet />
+              <AccessContext.Provider value={access}>
+                <Outlet />
+              </AccessContext.Provider>
             </Suspense>
           </ErrorBoundary>
         </main>

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { adjustStock, restoreStock } from '../lib/stock.js';
+import { staffName } from '../lib/auth.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -103,6 +104,8 @@ router.post('/checkout', async (req, res) => {
             order_date: now,
             status: 'Completed',
             payment_status: 'Paid',
+            cashier_id: req.user.id,
+            cashier_name: staffName(req),
           })
           .select('id')
           .single();

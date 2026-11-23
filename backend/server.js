@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { requireAuth } from './lib/auth.js';
+import { requireAuth, requireActive, enforceRole } from './lib/auth.js';
 import { createAiLimiter } from './lib/rateLimit.js';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
@@ -14,6 +14,8 @@ import suppliersRouter from './routes/suppliers.js';
 import supportRouter from './routes/support.js';
 import posRouter from './routes/pos.js';
 import aiRouter from './routes/ai.js';
+import meRouter from './routes/me.js';
+import staffRouter from './routes/staff.js';
 
 const app = express();
 
@@ -26,6 +28,13 @@ app.get('/api/health', (req, res) => res.json({ ok: true, version: 'orders-fix-1
 // Everything below needs a valid login
 app.use('/api', requireAuth);
 
+// Works before approval: who am I, and asking to join a pharmacy
+app.use('/api/me', meRouter);
+
+// Everything below needs an approved account, and some routes are admin only
+// (till operators get New Sale and lookups, see lib/auth.js)
+app.use('/api', requireActive, enforceRole);
+
 // Endpoints that call Gemini are rate limited per user and overall (see lib/rateLimit.js)
 app.post(['/api/find', '/api/insights'], createAiLimiter());
 
@@ -36,6 +45,7 @@ app.use('/api/payments', paymentsRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/pos', posRouter);
+app.use('/api/staff', staffRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api', statsRouter); // alias: /api/overview and /api/sales
 app.use('/api', sourcingRouter); // POST /api/find, /api/restock

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAccess } from '../lib/access';
 import { Search, Plus, Minus, Trash2, CheckCircle2, ShoppingCart, UserPlus } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
@@ -34,6 +35,7 @@ const statusStyle = {
 
 export default function Sell() {
   const navigate = useNavigate();
+  const { isAdmin } = useAccess();
 
   const [pq, setPq] = useState('');
   const [products, setProducts] = useState([]);
@@ -232,7 +234,7 @@ export default function Sell() {
             onClick={() => navigate('/orders')}
             className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700"
           >
-            View orders
+            {isAdmin ? 'View orders' : 'My sales'}
           </button>
           <button
             onClick={() => navigate('/customers')}
@@ -240,12 +242,14 @@ export default function Sell() {
           >
             View customers
           </button>
-          <button
-            onClick={() => navigate('/sales')}
-            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700"
-          >
-            View sales
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/sales')}
+              className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700"
+            >
+              View sales
+            </button>
+          )}
         </div>
       </div>
     );

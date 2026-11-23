@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { loadOrders, normOrderStatus, normPaymentStatus } from '../lib/data.js';
 import { adjustStock, restoreStock, exactIlike } from '../lib/stock.js';
+import { isAdmin, staffName } from '../lib/auth.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -16,7 +17,9 @@ router.get('/', async (req, res) => {
       (s) => s.toLowerCase() === String(req.query.status || '').trim().toLowerCase()
     );
 
-    const all = await loadOrders();
+    // Till operators only see the sales they made themselves
+    let all = await loadOrders();
+    if (!isAdmin(req)) all = all.filter((o) => o.cashier_id === req.user.id);
     const stats = {
       total: all.length,
       completed: all.filter((o) => o.order_status === 'Completed').length,
@@ -36,6 +39,7 @@ router.get('/', async (req, res) => {
         (o) =>
           o.customer_name.toLowerCase().includes(search) ||
           o.product_name.toLowerCase().includes(search) ||
+          (o.cashier_name || '').toLowerCase().includes(search) ||
           String(o.id).toLowerCase().includes(search)
       );
     }
@@ -107,6 +111,8 @@ router.post('/', async (req, res) => {
           order_date: now,
           status: 'Pending',
           payment_status: 'Pending',
+          cashier_id: req.user.id,
+          cashier_name: staffName(req),
         })
         .select('id').single();
       if (oe) throw oe;

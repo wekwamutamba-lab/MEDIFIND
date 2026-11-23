@@ -44,6 +44,7 @@ const Suppliers = page(() => import('./pages/Suppliers'));
 const Help = page(() => import('./pages/Help'));
 const Upgrade = page(() => import('./pages/Upgrade'));
 const Settings = page(() => import('./pages/Settings'));
+const Staff = page(() => import('./pages/Staff'));
 
 export default function App() {
   return (
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/help" element={<Help />} />
           <Route path="/upgrade" element={<Upgrade />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="staff" element={<Staff />} />
         </Route>
       </Routes>
     </BrowserRouter>

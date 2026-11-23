@@ -6,6 +6,10 @@
 -- seed files in order). Do not run it on the live database: it would not
 -- change existing tables, and the live database already matches it.
 --
+-- Fresh project: after the first person signs up in the app, make them the
+-- admin with STEP 4 of migration_roles.sql (put in their email). Without an
+-- admin, nobody can approve anyone.
+--
 -- Security: every table has Row Level Security (RLS) switched on and NO
 -- policies. The backend uses the service_role key, which is not limited by
 -- RLS, so the app works normally. The public (anon) key, which ships in
@@ -23,6 +27,8 @@
 --   payments.status          Pending | Completed | Failed | Refunded
 --   payments.method          Cash | EcoCash | Card | Bank Transfer
 --   restock_orders.status    Ordered | Received
+--   staff.role               admin | till
+--   staff.status             pending | active | suspended | rejected
 -- ==============================================================
 
 
@@ -79,7 +85,9 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at      TIMESTAMPTZ DEFAULT now(),
   total           NUMERIC DEFAULT 0,
   order_date      TIMESTAMPTZ DEFAULT now(),
-  payment_status  TEXT DEFAULT 'Pending'
+  payment_status  TEXT DEFAULT 'Pending',
+  cashier_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- who made the sale
+  cashier_name    TEXT
 );
 
 -- --------------------------------------------------------------
@@ -166,7 +174,29 @@ CREATE TABLE IF NOT EXISTS pharmacy_settings (
   low_stock_threshold  INTEGER DEFAULT 20,
   expiry_warning_days  INTEGER DEFAULT 30,
   message_footer       TEXT,
-  updated_at           TIMESTAMPTZ DEFAULT now()
+  updated_at           TIMESTAMPTZ DEFAULT now(),
+  join_code            TEXT                 -- staff type this to ask to join
+);
+
+-- --------------------------------------------------------------
+-- staff (who may use the app: role admin or till, approved or not).
+-- A row is created when someone asks to join; an admin approves it
+-- on the Staff page.
+-- --------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS staff (
+  user_id         UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email           TEXT,
+  full_name       TEXT,
+  role            TEXT NOT NULL DEFAULT 'till'    CHECK (role IN ('admin', 'till')),
+  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended', 'rejected')),
+  requested_role  TEXT CHECK (requested_role IN ('admin', 'till')),
+  pharmacy_name   TEXT,                -- filled in by "Register pharmacy"
+  license_number  TEXT,
+  whatsapp        TEXT,
+  address         TEXT,
+  decided_by      UUID,
+  decided_at      TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 
@@ -212,6 +242,7 @@ ALTER TABLE supplier_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE restock_orders    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE support_tickets   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pharmacy_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff             ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================================
 -- End of schema

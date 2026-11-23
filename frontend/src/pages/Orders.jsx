@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
+import { useAccess } from '../lib/access';
 
 const EMPTY_FORM = { customerName: '', medicine: '', quantity: '1', total: '0', status: 'Pending', paymentStatus: 'Pending' };
 const STATUSES = ['Pending', 'Completed', 'Cancelled'];
@@ -65,7 +66,10 @@ export default function Orders() {
   const revenue = Number(stats?.revenue ?? 0);
   const activeOrders = (stats?.total ?? 0) - (stats?.cancelled ?? 0);
 
-  const columns = [
+  // Till operators see only their own sales (the server filters them) and cannot change orders
+  const { isAdmin } = useAccess();
+
+  const allColumns = [
     { key: 'id', label: 'Order ID', render: (row) => row.id || '—' },
     { key: 'customerName', label: 'Customer', render: (row) => row.customer_name || row.customerName || '—' },
     { key: 'medicine', label: 'Medicine', render: (row) => row.product_name || row.medicine || '—' },
@@ -74,8 +78,10 @@ export default function Orders() {
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.order_status || row.status || 'Pending'} /> },
     { key: 'paymentStatus', label: 'Payment', render: (row) => <StatusBadge status={row.payment_status || row.paymentStatus || 'Unpaid'} /> },
     { key: 'date', label: 'Date', render: (row) => (row.order_date || row.date || '').slice(0, 10) || '—' },
+    { key: 'cashier', label: 'Sold by', render: (row) => row.cashier_name || '—' },
     { key: 'actions', label: 'Actions' },
   ];
+  const columns = isAdmin ? allColumns : allColumns.filter((c) => c.key !== 'actions' && c.key !== 'cashier');
 
   function oTotal(row) {
     return row.total ?? 0;
@@ -129,7 +135,7 @@ export default function Orders() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{isAdmin ? 'Orders' : 'My Sales'}</h1>
         <button
           type="button"
           onClick={openAdd}
@@ -172,7 +178,7 @@ export default function Orders() {
         isEmpty={data.length === 0}
         emptyText={search || status ? 'No orders match your search.' : 'No orders yet.'}
       >
-        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} actions={['edit']} />
+        <DataTable columns={columns} data={data} pageSize={PAGE_SIZE} total={total} page={page} onPageChange={goToPage} onAction={handleAction} actions={isAdmin ? ['edit'] : []} />
       </ListBody>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Order">

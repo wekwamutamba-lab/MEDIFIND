@@ -125,3 +125,13 @@ export async function getRestockOrders() {
 export async function receiveRestock(id) {
   return request(`/restock/${id}/receive`, { method: 'PATCH' });
 }
+
+// ---------- Access: who am I, joining a pharmacy, staff (admin) ----------
+export const getMe = () => request('/me');
+export const joinPharmacy = (body) => request('/me/join', { method: 'POST', body: JSON.stringify(body) });
+export const registerPharmacy = (body) =>
+  request('/me/register', { method: 'POST', body: JSON.stringify(body) });
+export const getStaff = () => request('/staff');
+export const updateStaff = (id, body) =>
+  request(`/staff/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+export const newJoinCode = () => request('/staff/join-code', { method: 'POST' });

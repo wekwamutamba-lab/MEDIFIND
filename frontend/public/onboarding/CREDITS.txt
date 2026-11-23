@@ -1,0 +1,22 @@
+Login page photos (free Unsplash License: free to use, no attribution required)
+
+Save each photo in this folder with exactly this file name. On each page, use
+"Download free" and pick the Medium size (about 1920 px wide is plenty).
+If a file is missing, the login page still works: that slide just shows the
+green background.
+
+pharmacist.jpg  Pharmacist reaching for medication on a shelf
+                by National Cancer Institute
+                https://unsplash.com/photos/pharmacist-reaching-for-medication-on-shelf-byGTytEGjBo
+
+shelf.jpg       A shelf filled with white and orange medicine bottles
+                by Jeff Trierweiler
+                https://unsplash.com/photos/a-shelf-filled-with-lots-of-white-and-orange-medicine-bottles-sWdaAZ5fXU8
+
+pills.jpg       Assortment of colourful pills and capsules
+                by Jorge Campos
+                https://unsplash.com/photos/assortment-of-colorful-pills-and-capsules-scattered-randomly-NySWy3DvovU
+
+bottle.jpg      Prescription bottle with capsules
+                by Alexander Grey
+                https://unsplash.com/photos/shallow-focus-photography-of-prescription-bottle-with-capsules-FEPfs43yiPE
