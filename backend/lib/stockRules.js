@@ -2,40 +2,41 @@ import * as sb from './supabase.js';
 
 const supabase = sb.supabase || sb.default;
 
-// The pharmacy's own stock rules, set on the Settings page (pharmacy_settings row id 1).
-// Kept for 30 seconds so busy pages do not read the settings on every request.
+// Each pharmacy's own stock rules, set on its Settings page (columns on its row in
+// the pharmacies table). Kept for 30 seconds so busy pages do not read them on every request.
 export const DEFAULT_RULES = { lowStock: 20, expiryDays: 30 };
 const TTL_MS = 30_000;
-let cached = null;
-let cachedAt = 0;
+const cache = new Map(); // pharmacy id -> { rules, at }
 
-export async function getStockRules() {
-  if (cached && Date.now() - cachedAt < TTL_MS) return cached;
+export async function getStockRules(pharmacyId) {
+  const hit = cache.get(pharmacyId);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.rules;
+  let rules;
   try {
     const { data, error } = await supabase
-      .from('pharmacy_settings')
+      .from('pharmacies')
       .select('low_stock_threshold, expiry_warning_days')
-      .eq('id', 1)
+      .eq('id', pharmacyId)
       .limit(1);
     if (error) throw error;
     const row = data?.[0] || {};
     const lowStock = Number(row.low_stock_threshold);
     const expiryDays = Number(row.expiry_warning_days);
-    cached = {
+    rules = {
       lowStock: lowStock >= 1 ? lowStock : DEFAULT_RULES.lowStock,
       expiryDays: expiryDays >= 1 ? expiryDays : DEFAULT_RULES.expiryDays,
     };
   } catch (err) {
     console.error('stock rules: using defaults:', err.message);
-    cached = { ...DEFAULT_RULES };
+    rules = { ...DEFAULT_RULES };
   }
-  cachedAt = Date.now();
-  return cached;
+  cache.set(pharmacyId, { rules, at: Date.now() });
+  return rules;
 }
 
-// Call after the settings change so the new rules apply straight away
-export function clearStockRules() {
-  cached = null;
+// Call after a pharmacy's settings change so its new rules apply straight away
+export function clearStockRules(pharmacyId) {
+  cache.delete(pharmacyId);
 }
 
 export function stockStatus(quantity, rules) {

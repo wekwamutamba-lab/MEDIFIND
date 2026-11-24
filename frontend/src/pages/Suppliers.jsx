@@ -149,7 +149,7 @@ export default function Suppliers() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Suppliers</h1>
           <p className="text-sm text-gray-500">
-            The suppliers you buy from, and what each one sells
+            Your own suppliers, plus the shared MediFind supplier directory every pharmacy can search
           </p>
         </div>
         <button
@@ -196,7 +196,12 @@ export default function Suppliers() {
           <div key={s.id} className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-lg font-bold text-sidebar">{s.name}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-lg font-bold text-sidebar">{s.name}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${s.shared ? 'bg-gray-100 text-gray-600' : 'bg-lime/40 text-sidebar'}`}>
+                    {s.shared ? 'Shared directory' : 'Your supplier'}
+                  </span>
+                </div>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                   {s.address && (
                     <span className="flex items-center gap-1">
@@ -229,25 +234,34 @@ export default function Suppliers() {
                 >
                   <Package size={14} /> {s.product_count} products
                 </button>
-                <button
-                  onClick={() => openEdit(s)}
-                  className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50"
-                  aria-label="Edit"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => remove(s)}
-                  className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
-                  aria-label="Delete"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {/* shared suppliers can be searched and ordered from, but not changed */}
+                {!s.shared && (
+                  <>
+                    <button
+                      onClick={() => openEdit(s)}
+                      className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50"
+                      aria-label="Edit"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => remove(s)}
+                      className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                      aria-label="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             {openId === s.id && (
               <div className="mt-4 border-t border-gray-100 pt-4">
+                {s.shared && (
+                  <p className="mb-3 text-xs text-gray-500">This supplier is in the shared directory, so its list cannot be changed here.</p>
+                )}
+                {!s.shared && (
                 <div className="mb-3 grid gap-2 sm:grid-cols-5">
                   <input
                     className={`${inputCls} sm:col-span-2`}
@@ -287,6 +301,7 @@ export default function Suppliers() {
                     </button>
                   </div>
                 </div>
+                )}
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -314,12 +329,14 @@ export default function Suppliers() {
                           <td className="py-2 pr-4">${Number(p.unit_price || 0).toFixed(2)}</td>
                           <td className="py-2 pr-4">{p.stock}</td>
                           <td className="py-2 text-right">
-                            <button
-                              onClick={() => removeProduct(p.id)}
-                              className="text-xs text-red-600 hover:underline"
-                            >
-                              Remove
-                            </button>
+                            {!s.shared && (
+                              <button
+                                onClick={() => removeProduct(p.id)}
+                                className="text-xs text-red-600 hover:underline"
+                              >
+                                Remove
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

@@ -1,9 +1,7 @@
 import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { loadOrders } from '../lib/data.js';
 import { selectAll } from '../lib/selectAll.js';
 
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 // GET /api/customers?search=&page=1&limit=10
@@ -14,8 +12,8 @@ router.get('/', async (req, res) => {
     const search = String(req.query.search || '').trim().toLowerCase();
 
     const [customers, orders] = await Promise.all([
-      selectAll(() => supabase.from('customers').select('*')),
-      loadOrders(),
+      selectAll(() => req.pharmacy.select('customers', '*')),
+      loadOrders(req.pharmacy),
     ]);
 
     const agg = new Map();

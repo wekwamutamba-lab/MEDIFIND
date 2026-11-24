@@ -10,18 +10,18 @@ const METHODS = ['Cash', 'EcoCash', 'Card', 'Bank Transfer'];
 const round2 = (n) => Math.round(n * 100) / 100;
 const clean = (v) => String(v ?? '').trim();
 
-// Finds an existing customer (by phone, email, then exact name) or creates a new one
-async function findOrCreateCustomer({ name, phone, email }) {
+// Finds one of this pharmacy's customers (by phone, email, then exact name) or creates one
+async function findOrCreateCustomer(pharmacy, { name, phone, email }) {
   if (phone) {
-    const { data } = await supabase.from('customers').select('*').eq('phone', phone).limit(1);
+    const { data } = await pharmacy.select('customers', '*').eq('phone', phone).limit(1);
     if (data?.length) return { customer: data[0], created: false };
   }
   if (email) {
-    const { data } = await supabase.from('customers').select('*').ilike('email', email).limit(1);
+    const { data } = await pharmacy.select('customers', '*').ilike('email', email).limit(1);
     if (data?.length) return { customer: data[0], created: false };
   }
   const exact = name.replace(/[\\%_]/g, (m) => `\\${m}`);
-  const { data: byName } = await supabase.from('customers').select('*').ilike('name', exact).limit(1);
+  const { data: byName } = await pharmacy.select('customers', '*').ilike('name', exact).limit(1);
   if (byName?.length) return { customer: byName[0], created: false };
 
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'customer';
@@ -31,7 +31,7 @@ async function findOrCreateCustomer({ name, phone, email }) {
     email: email || `${slug}.${Date.now().toString(36)}@walkin.medifind`,
     address: null,
   };
-  const { data: created, error } = await supabase.from('customers').insert(row).select().single();
+  const { data: created, error } = await pharmacy.insert('customers', row).select().single();
   if (error) throw error;
   return { customer: created, created: true };
 }
@@ -56,9 +56,10 @@ router.post('/checkout', async (req, res) => {
     if (wanted.size === 0) return res.status(400).json({ error: 'Add at least one medicine to the sale' });
     if (wanted.size > 50) return res.status(400).json({ error: 'Too many items in one sale' });
 
-    const { data: products, error: pe } = await supabase
-      .from('products')
-      .select('*')
+    // only this pharmacy's products can be sold
+    const pharmacyId = req.pharmacy.id;
+    const { data: products, error: pe } = await req.pharmacy
+      .select('products', '*')
       .in('id', [...wanted.keys()]);
     if (pe) throw pe;
     const pMap = new Map((products || []).map((p) => [p.id, p]));
@@ -72,11 +73,11 @@ router.post('/checkout', async (req, res) => {
     const taken = [];
     try {
       for (const [id, q] of wanted) {
-        await adjustStock(id, -q);
+        await adjustStock(id, -q, { pharmacyId });
         taken.push([id, q]);
       }
     } catch (err) {
-      for (const [id, q] of taken) await restoreStock(id, q);
+      for (const [id, q] of taken) await restoreStock(id, q, pharmacyId);
       throw err;
     }
 
@@ -87,16 +88,15 @@ router.post('/checkout', async (req, res) => {
     let created;
 
     try {
-      ({ customer, created } = await findOrCreateCustomer({ name, phone, email }));
+      ({ customer, created } = await findOrCreateCustomer(req.pharmacy, { name, phone, email }));
 
       for (const [id, q] of wanted) {
         const p = pMap.get(id);
         const price = Number(p.price) || 0;
         const total = round2(price * q);
 
-        const { data: order, error: oe } = await supabase
-          .from('orders')
-          .insert({
+        const { data: order, error: oe } = await req.pharmacy
+          .insert('orders', {
             customer_id: customer.id,
             product_id: id,
             quantity: q,
@@ -112,7 +112,7 @@ router.post('/checkout', async (req, res) => {
         if (oe) throw oe;
         orderIds.push(order.id);
 
-        const { error: payErr } = await supabase.from('payments').insert({
+        const { error: payErr } = await req.pharmacy.insert('payments', {
           order_id: order.id,
           amount: total,
           status: 'Completed',
@@ -126,15 +126,24 @@ router.post('/checkout', async (req, res) => {
     } catch (err) {
       // Undo the whole sale so nothing is half-saved
       if (orderIds.length) {
-        await supabase.from('payments').delete().in('order_id', orderIds);
-        await supabase.from('orders').delete().in('id', orderIds);
+        await req.pharmacy.delete('payments').in('order_id', orderIds);
+        await req.pharmacy.delete('orders').in('id', orderIds);
       }
-      for (const [id, q] of taken) await restoreStock(id, q);
+      for (const [id, q] of taken) await restoreStock(id, q, pharmacyId);
       throw err;
     }
     const firstOrderId = String(orderIds[0] || '');
 
+    // pharmacy details for the printed receipt (Settings page)
+    const { data: ph } = await supabase
+      .from('pharmacies')
+      .select('name, address, city, phone, whatsapp, email, license_number')
+      .eq('id', pharmacyId)
+      .limit(1);
+
     res.status(201).json({
+      pharmacy: ph?.[0] || null,
+      cashier: staffName(req),
       receipt_no: firstOrderId.slice(0, 8).toUpperCase(),
       date: now,
       customer: { id: customer.id, name: customer.name, phone: customer.phone || '', email: customer.email || '' },

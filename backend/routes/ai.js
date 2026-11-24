@@ -1,10 +1,8 @@
 import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
 import { askGemini } from '../lib/gemini.js';
 import { getStockRules, expiryLimit } from '../lib/stockRules.js';
 
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 // The supplier search (POST /api/find) lives in sourcing.js.
@@ -13,11 +11,11 @@ const router = Router();
 router.post('/insights', async (req, res) => {
   try {
     const data = await selectAll(() =>
-      supabase.from('products').select('id, name, quantity, expiry_date, category')
+      req.pharmacy.select('products', 'id, name, quantity, expiry_date, category')
     );
 
     // "low" and "expiring" use the pharmacy's own rules from the Settings page
-    const rules = await getStockRules();
+    const rules = await getStockRules(req.pharmacy.id);
     const until = expiryLimit(rules);
     const low = (data || []).filter((p) => p.quantity < rules.lowStock);
     const expiring = (data || []).filter((p) => p.expiry_date && p.expiry_date <= until);

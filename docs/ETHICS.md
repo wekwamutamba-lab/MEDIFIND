@@ -11,6 +11,7 @@ MediFind's AI only makes suggestions. It never sees patient information, it neve
 - **Logins:** accounts use Supabase Auth. Supabase hashes the passwords, and MediFind never stores them.
 - **Access:** every API request needs a valid login and an account an admin has approved. The database scripts (`schema.sql`, `security_fix.sql`) turn on row-level security for every table, so nobody can read the data directly with the public key.
 - **Least access:** till operators can reach only selling, product lookup, customers and their own sales. The server enforces this.
+- **Each pharmacy's data is private.** Every pharmacy only ever sees its own products, sales, customers, payments, staff and settings. MediFind platform owners, who approve new pharmacies, see the registration details only. The server enforces this on every request, and automated tests check it for every page.
 
 ## Bias and fairness
 
@@ -39,6 +40,5 @@ MediFind's AI only makes suggestions. It never sees patient information, it neve
 
 ## Planned improvements
 
-- **Separate data for each pharmacy**, for when more than one pharmacy uses MediFind.
 - **An audit log** of stock changes and restock orders.
 - **A clear AI notice**, shown to new staff the first time they use an AI feature.

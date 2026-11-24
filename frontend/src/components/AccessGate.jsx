@@ -39,6 +39,7 @@ export default function AccessGate({ me, onChange, onLogout }) {
     }
   };
 
+  const registering = me?.staff?.requested_role === 'admin' && !me?.pharmacy;
   const view = {
     none: {
       Icon: KeyRound,
@@ -47,16 +48,17 @@ export default function AccessGate({ me, onChange, onLogout }) {
     },
     pending: {
       Icon: Clock,
-      title: 'Waiting for approval from your pharmacy admin',
-      text:
-        me?.staff?.requested_role === 'admin'
-          ? 'You asked to be a pharmacy admin. An existing admin needs to approve you. You can close this page and come back later.'
-          : 'Your request to join has been sent. Your admin needs to approve you before you can start. You can close this page and come back later.',
+      title: registering ? 'Your pharmacy is being checked' : 'Waiting for approval from your pharmacy admin',
+      text: registering
+        ? 'MediFind checks every new pharmacy before it opens. Once it is approved you will be its admin, and only you and the staff you approve can see its data. You can close this page and come back later.'
+        : 'Your request to join has been sent. Your admin needs to approve you before you can start. You can close this page and come back later.',
     },
     rejected: {
       Icon: ShieldX,
-      title: 'Your request was declined',
-      text: 'Your pharmacy admin declined this account. If you think this is a mistake, speak to them.',
+      title: registering ? 'Your pharmacy registration was declined' : 'Your request was declined',
+      text: registering
+        ? 'MediFind could not approve this pharmacy registration. If you think this is a mistake, contact MediFind support.'
+        : 'Your pharmacy admin declined this account. If you think this is a mistake, speak to them.',
     },
     suspended: {
       Icon: ShieldX,

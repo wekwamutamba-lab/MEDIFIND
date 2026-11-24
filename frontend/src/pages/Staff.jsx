@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Copy, Check, RefreshCw, UserCheck, UserX, ShieldCheck, Store } from 'lucide-react';
-import { getStaff, updateStaff, newJoinCode } from '../lib/api';
+import { getStaff, updateStaff, newJoinCode, getRegistrations, decideRegistration } from '../lib/api';
+import { useAccess } from '../lib/access';
 
 const ROLE_LABEL = { admin: 'Admin', till: 'Till operator' };
 const STATUS_STYLE = {
@@ -20,7 +21,98 @@ function Badge({ status }) {
   );
 }
 
+// New pharmacy registrations, shown only to MediFind platform owners. Approving
+// creates a separate pharmacy for the person; the owner never sees its data.
+function Registrations() {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+
+  const load = () =>
+    getRegistrations()
+      .then((res) => { setRows(res.data || []); setError(''); })
+      .catch((err) => setError(err.message));
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const decide = async (r, decision) => {
+    const name = r.pharmacy_name || 'this pharmacy';
+    const text = decision === 'approve'
+      ? `Open ${name} for ${r.full_name || r.email}? They become its admin. You will not be able to see its data.`
+      : `Decline ${name}?`;
+    if (!window.confirm(text)) return;
+    setBusy(r.id);
+    setError('');
+    try {
+      await decideRegistration(r.id, decision);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const waiting = (rows || []).filter((r) => r.status === 'pending');
+  const declined = (rows || []).filter((r) => r.status === 'rejected');
+  const btn = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50';
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-sidebar/20 bg-sidebar/5 p-4 sm:p-5">
+      <div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+          <Store size={18} /> New pharmacy registrations {waiting.length > 0 && <span className="text-amber-600">({waiting.length})</span>}
+        </h2>
+        <p className="text-xs text-gray-500">
+          You see this because you can approve new pharmacies on MediFind. Approving one opens a separate pharmacy with this
+          person as its admin. Its stock, sales and staff stay private to that pharmacy.
+        </p>
+      </div>
+      {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {rows === null && !error && <div className="text-sm text-gray-400">Loading…</div>}
+      {rows && waiting.length === 0 && (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-4 text-center text-sm text-gray-500">No registrations waiting.</div>
+      )}
+      {waiting.map((r) => (
+        <div key={r.id} className="rounded-xl border border-amber-200 bg-white p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0 text-sm">
+              <div className="font-semibold text-gray-900">{r.pharmacy_name || 'Pharmacy name not given'}</div>
+              <div className="text-gray-600">{r.full_name || '—'} · <span className="break-all">{r.email}</span></div>
+              <div className="mt-1 grid gap-x-4 text-xs text-gray-500 sm:grid-cols-2">
+                <div>Licence: {r.license_number || '—'}</div>
+                <div>WhatsApp: {r.whatsapp || '—'}</div>
+                <div className="sm:col-span-2">Address: {r.address || '—'}</div>
+                <div>Asked {fmtDate(r.created_at)}</div>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button type="button" disabled={busy === r.id} onClick={() => decide(r, 'approve')} className={`${btn} bg-lime text-sidebar hover:bg-[#cfe85c]`}>
+                <Check size={14} /> Approve pharmacy
+              </button>
+              <button type="button" disabled={busy === r.id} onClick={() => decide(r, 'decline')} className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}>
+                <UserX size={14} /> Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      {declined.length > 0 && (
+        <details className="text-xs text-gray-500">
+          <summary className="cursor-pointer">Declined ({declined.length})</summary>
+          <ul className="mt-2 space-y-1">
+            {declined.map((r) => <li key={r.id}>{r.pharmacy_name || '—'} · {r.email}</li>)}
+          </ul>
+        </details>
+      )}
+    </section>
+  );
+}
+
 export default function Staff() {
+  const { me } = useAccess();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(''); // id of the row being saved, or 'code'
@@ -94,6 +186,8 @@ export default function Staff() {
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
+      {me?.platform_owner && <Registrations />}
+
       {data && (
         <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:flex-row md:items-center md:justify-between">
           <div>
@@ -137,21 +231,8 @@ export default function Staff() {
                 <div className="font-semibold text-gray-900">{p.full_name || p.email}</div>
                 <div className="truncate text-sm text-gray-500">{p.email}</div>
                 <div className="mt-1 text-xs text-gray-500">
-                  Asked {fmtDate(p.created_at)} to be {p.requested_role === 'admin' ? 'an admin' : 'a till operator'}
+                  Asked {fmtDate(p.created_at)} to join with your join code
                 </div>
-                {p.requested_role === 'admin' && (
-                  <div className="mt-2 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                    <div className="flex items-center gap-1 font-semibold text-gray-700">
-                      <Store size={13} /> {p.pharmacy_name || 'Pharmacy name not given'}
-                    </div>
-                    <div>Licence: {p.license_number || '—'}</div>
-                    <div>WhatsApp: {p.whatsapp || '—'}</div>
-                    <div>Address: {p.address || '—'}</div>
-                    <div className="mt-1 text-amber-700">
-                      MediFind holds one pharmacy's data for now, so an approved admin sees and manages your pharmacy.
-                    </div>
-                  </div>
-                )}
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
                 <button

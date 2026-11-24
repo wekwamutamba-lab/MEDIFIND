@@ -1,19 +1,18 @@
 import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { getJoinCode, setNewJoinCode } from '../lib/joinCode.js';
 
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 const ROLES = ['admin', 'till'];
 const STATUSES = ['active', 'pending', 'suspended', 'rejected'];
 
 // GET /api/staff  -> { join_code, staff: [...] }  (admin only, see lib/auth.js)
+// Only this pharmacy's staff and its own join code.
 router.get('/', async (req, res) => {
   try {
     const [{ data, error }, join_code] = await Promise.all([
-      supabase.from('staff').select('*').order('created_at', { ascending: true }),
-      getJoinCode(),
+      req.pharmacy.select('staff', '*').order('created_at', { ascending: true }),
+      getJoinCode(req.pharmacy.id),
     ]);
     if (error) throw error;
     res.json({
@@ -42,7 +41,7 @@ router.get('/', async (req, res) => {
 // POST /api/staff/join-code  -> { join_code }  makes a new code; the old one stops working
 router.post('/join-code', async (req, res) => {
   try {
-    res.json({ join_code: await setNewJoinCode() });
+    res.json({ join_code: await setNewJoinCode(req.pharmacy.id) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -66,7 +65,8 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ error: 'You cannot change your own access. Ask another admin.' });
     }
 
-    const { data: row, error: re } = await supabase.from('staff').select('*').eq('user_id', req.params.id).maybeSingle();
+    // only people in this pharmacy (anyone else looks like they do not exist)
+    const { data: row, error: re } = await req.pharmacy.select('staff', '*').eq('user_id', req.params.id).maybeSingle();
     if (re) throw re;
     if (!row) return res.status(404).json({ error: 'That person was not found' });
 
@@ -77,9 +77,8 @@ router.patch('/:id', async (req, res) => {
     // Never leave the pharmacy without an active admin
     const staysAdmin = (updates.role ?? row.role) === 'admin' && (updates.status ?? row.status) === 'active';
     if (row.role === 'admin' && row.status === 'active' && !staysAdmin) {
-      const { count, error: ce } = await supabase
-        .from('staff')
-        .select('user_id', { count: 'exact', head: true })
+      const { count, error: ce } = await req.pharmacy
+        .select('staff', 'user_id', { count: 'exact', head: true })
         .eq('role', 'admin')
         .eq('status', 'active');
       if (ce) throw ce;
@@ -88,9 +87,8 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
-    const { data, error } = await supabase
-      .from('staff')
-      .update(updates)
+    const { data, error } = await req.pharmacy
+      .update('staff', updates)
       .eq('user_id', req.params.id)
       .select()
       .single();

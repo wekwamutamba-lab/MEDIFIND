@@ -36,3 +36,28 @@ body {
   50% { transform: rotate(8deg) translateY(-8px); }
 }
 .pill-sway { animation: pill-sway 4s ease-in-out infinite; }
+/* ---------- Printed receipt (components/PrintReceipt.jsx) ----------
+   Hidden on screen. When printing, only the receipt shows: 72 mm wide for an
+   80 mm till printer, centred on A4. Always black on white. */
+#print-receipt { display: none; }
+@media print {
+  @page { margin: 4mm; }
+  body > *:not(#print-receipt) { display: none !important; }
+  html, body { background: #fff !important; }
+  #print-receipt {
+    display: block;
+    width: 72mm;
+    margin: 0 auto;
+    color: #000;
+    font: 11.5px/1.4 Arial, Helvetica, sans-serif;
+  }
+  #print-receipt .r-center { text-align: center; }
+  #print-receipt .r-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  #print-receipt .r-rule { border-top: 1px dashed #000; margin: 6px 0; }
+  #print-receipt .r-row { display: flex; justify-content: space-between; gap: 8px; }
+  #print-receipt .r-row > span:last-child { text-align: right; }
+  #print-receipt .r-item { margin-bottom: 3px; break-inside: avoid; }
+  #print-receipt .r-sub { padding-left: 8px; }
+  #print-receipt .r-total { font-size: 14px; font-weight: 700; }
+  #print-receipt .r-foot { margin-top: 2px; }
+}

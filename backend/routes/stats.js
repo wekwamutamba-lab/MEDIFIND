@@ -1,10 +1,8 @@
 import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { loadOrders, byMonth } from '../lib/data.js';
 import { getStockRules } from '../lib/stockRules.js';
 import { localParts } from '../lib/time.js';
 
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -12,19 +10,17 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // GET /api/stats/overview
 router.get('/overview', async (req, res) => {
   try {
-    const orders = await loadOrders();
+    const orders = await loadOrders(req.pharmacy);
     const valid = orders.filter((o) => o.order_status !== 'Cancelled');
     const revenue = valid.reduce((s, o) => s + o.total, 0);
 
-    const { count } = await supabase
-      .from('customers')
-      .select('*', { count: 'exact', head: true });
+    const { count } = await req.pharmacy
+      .select('customers', '*', { count: 'exact', head: true });
 
     // low or out of stock, using the pharmacy's own low-stock level
-    const rules = await getStockRules();
-    const { count: lowStock } = await supabase
-      .from('vw_products_with_status')
-      .select('*', { count: 'exact', head: true })
+    const rules = await getStockRules(req.pharmacy.id);
+    const { count: lowStock } = await req.pharmacy
+      .select('vw_products_with_status', '*', { count: 'exact', head: true })
       .lt('quantity', rules.lowStock);
 
     const byProduct = new Map();
@@ -54,7 +50,7 @@ router.get('/overview', async (req, res) => {
 // GET /api/stats/sales
 router.get('/sales', async (req, res) => {
   try {
-    const orders = await loadOrders();
+    const orders = await loadOrders(req.pharmacy);
     const valid = orders.filter((o) => o.order_status !== 'Cancelled');
     const revenue = valid.reduce((s, o) => s + o.total, 0);
     const profit = revenue * 0.3;

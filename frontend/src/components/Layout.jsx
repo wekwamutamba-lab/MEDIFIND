@@ -237,9 +237,17 @@ export default function Layout() {
           <div className="w-8 h-8 rounded-xl bg-lime text-sidebar flex items-center justify-center font-bold text-xs">
             MF
           </div>
-          <span className="font-bold text-lg tracking-tight leading-none">
-            Medi<span className="text-lime">Find</span>
-          </span>
+          <div className="min-w-0">
+            <span className="font-bold text-lg tracking-tight leading-none">
+              Medi<span className="text-lime">Find</span>
+            </span>
+            {/* the pharmacy this person works at: each pharmacy only sees its own data */}
+            {me.pharmacy?.name && (
+              <div className="truncate text-[11px] leading-tight text-white/60" title={me.pharmacy.name}>
+                {me.pharmacy.name}
+              </div>
+            )}
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">

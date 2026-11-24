@@ -15,12 +15,15 @@ export const exactIlike = (text) => String(text).replace(/[\\%_]/g, (m) => `\\${
 // Adds delta (negative to remove) to a product's stock without losing concurrent updates.
 // The write only succeeds if the quantity is still the value we read, otherwise it re-reads
 // and tries again. Throws 400 when there is not enough stock, 404 when the product is gone.
-export async function adjustStock(productId, delta, { retries = 5 } = {}) {
+// pharmacyId limits it to that pharmacy's products.
+export async function adjustStock(productId, delta, { retries = 5, pharmacyId } = {}) {
+  if (!pharmacyId) throw httpError(500, 'adjustStock needs the pharmacy');
   for (let attempt = 0; attempt < retries; attempt++) {
     const { data: p, error } = await supabase
       .from('products')
       .select('id, name, quantity')
       .eq('id', productId)
+      .eq('pharmacy_id', pharmacyId)
       .maybeSingle();
     if (error) throw error;
     if (!p) throw httpError(404, 'Product not found');
@@ -33,6 +36,7 @@ export async function adjustStock(productId, delta, { retries = 5 } = {}) {
       .from('products')
       .update({ quantity: next })
       .eq('id', productId)
+      .eq('pharmacy_id', pharmacyId)
       .eq('quantity', p.quantity)
       .select('id');
     if (ue) throw ue;
@@ -42,9 +46,9 @@ export async function adjustStock(productId, delta, { retries = 5 } = {}) {
 }
 
 // Best-effort undo used when a later step fails; logs instead of throwing
-export async function restoreStock(productId, quantity) {
+export async function restoreStock(productId, quantity, pharmacyId) {
   try {
-    await adjustStock(productId, quantity);
+    await adjustStock(productId, quantity, { pharmacyId });
   } catch (e) {
     console.error(`Could not restore ${quantity} units to product ${productId}:`, e.message);
   }

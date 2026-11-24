@@ -1,8 +1,6 @@
 ﻿import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
 
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 const normStatus = (s) => {
@@ -24,10 +22,10 @@ router.get('/', async (req, res) => {
 
     const [payments, orders, customers] = await Promise.all([
       selectAll(() =>
-        supabase.from('payments').select('*').order('payment_date', { ascending: false })
+        req.pharmacy.select('payments', '*').order('payment_date', { ascending: false })
       ),
-      selectAll(() => supabase.from('orders').select('id, customer_id')),
-      selectAll(() => supabase.from('customers').select('id, name')),
+      selectAll(() => req.pharmacy.select('orders', 'id, customer_id')),
+      selectAll(() => req.pharmacy.select('customers', 'id, name')),
     ]);
 
     const orderToCustomer = new Map(orders.map((o) => [o.id, o.customer_id]));

@@ -1,4 +1,5 @@
 import * as sb from './supabase.js';
+import { forPharmacy } from './tenant.js';
 
 const supabase = sb.supabase || sb.default;
 
@@ -39,11 +40,16 @@ const BLOCKED = {
   suspended: 'Your account has been suspended. Speak to your pharmacy admin.',
 };
 
-// Only approved (active) staff get past this point
+// Only approved (active) staff of a pharmacy get past this point. From here on,
+// req.pharmacy only reads and writes that pharmacy's rows (lib/tenant.js).
 export function requireActive(req, res, next) {
   if (req.method === 'OPTIONS') return next();
   const status = req.staff?.status || 'none';
-  if (status === 'active') return next();
+  if (status === 'active' && req.staff.pharmacy_id) {
+    req.pharmacy = forPharmacy(req.staff.pharmacy_id);
+    return next();
+  }
+  if (status === 'active') return res.status(403).json({ error: BLOCKED.none, code: 'ACCESS_NONE' });
   return res.status(403).json({ error: BLOCKED[status] || BLOCKED.none, code: `ACCESS_${status.toUpperCase()}` });
 }
 

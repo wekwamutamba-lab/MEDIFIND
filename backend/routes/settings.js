@@ -17,23 +17,25 @@ const TEXT = [
   'message_footer',
 ];
 
-async function load() {
-  const { data, error } = await supabase.from('pharmacy_settings').select('*').eq('id', 1).limit(1);
+// Each pharmacy's settings are columns on its own row in the pharmacies table.
+// The API keeps the name pharmacy_name for the column 'name'.
+const COLS = 'id, name, pharmacist_name, phone, whatsapp, email, address, city, license_number, message_footer, low_stock_threshold, expiry_warning_days, updated_at';
+const toApi = (r) => {
+  const { name, ...rest } = r || {};
+  return { ...rest, pharmacy_name: name ?? '' };
+};
+
+async function load(pharmacyId) {
+  const { data, error } = await supabase.from('pharmacies').select(COLS).eq('id', pharmacyId).limit(1);
   if (error) throw error;
-  if (data?.length) return data[0];
-  const { data: created, error: e2 } = await supabase
-    .from('pharmacy_settings')
-    .insert({ id: 1, low_stock_threshold: 20, expiry_warning_days: 30 })
-    .select()
-    .single();
-  if (e2) throw e2;
-  return created;
+  if (!data?.length) throw new Error('Your pharmacy was not found');
+  return data[0];
 }
 
 // GET /api/settings
 router.get('/', async (req, res) => {
   try {
-    res.json(await load());
+    res.json(toApi(await load(req.pharmacy.id)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,16 +82,22 @@ router.put('/', async (req, res) => {
       updates.expiry_warning_days = n;
     }
 
-    await load(); // make sure the row exists
+    // the column is called name; a pharmacy always keeps a name
+    if (updates.pharmacy_name !== undefined) {
+      if (!updates.pharmacy_name) return res.status(400).json({ error: 'The pharmacy name cannot be empty' });
+      updates.name = updates.pharmacy_name;
+      delete updates.pharmacy_name;
+    }
+
     const { data, error } = await supabase
-      .from('pharmacy_settings')
+      .from('pharmacies')
       .update(updates)
-      .eq('id', 1)
-      .select()
+      .eq('id', req.pharmacy.id)
+      .select(COLS)
       .single();
     if (error) throw error;
-    clearStockRules(); // new low-stock and expiry rules apply straight away
-    res.json(data);
+    clearStockRules(req.pharmacy.id); // new low-stock and expiry rules apply straight away
+    res.json(toApi(data));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

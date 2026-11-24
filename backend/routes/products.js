@@ -1,8 +1,6 @@
 import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
 import { getStockRules, stockStatus, expiryFlags } from '../lib/stockRules.js';
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 // normalise DB status to contract capitalised values
@@ -28,8 +26,8 @@ router.get('/', async (req, res) => {
     const pageNum = Math.max(parseInt(page) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(limit) || 10, 1), 100);
 
-    const rules = await getStockRules();
-    let q = supabase.from('vw_products_with_status').select('*', { count: 'exact' });
+    const rules = await getStockRules(req.pharmacy.id);
+    let q = req.pharmacy.select('vw_products_with_status', '*', { count: 'exact' });
     if (search) q = q.ilike('name', `%${search}%`);
     if (category) q = q.eq('category', category);
     // filter on quantity, so the pharmacy's own low-stock level applies
@@ -48,7 +46,7 @@ router.get('/', async (req, res) => {
 
     // stats & categories over ALL products (not only page)
     const allRows = await selectAll(() =>
-      supabase.from('vw_products_with_status').select('id, category, quantity')
+      req.pharmacy.select('vw_products_with_status', 'id, category, quantity')
     );
 
     const catMap = {};
@@ -124,24 +122,16 @@ router.post('/', async (req, res) => {
     const { fields, error: invalid } = readProductFields(req.body);
     if (invalid) return res.status(400).json({ error: invalid });
 
-    // use the pharmacy_id sent by the client, otherwise the first pharmacy
-    let pid = req.body.pharmacy_id || null;
-    if (!pid) {
-      const { data: ph, error: phe } = await supabase.from('pharmacies').select('id').limit(1);
-      if (phe) throw phe;
-      if (ph && ph.length) pid = ph[0].id;
-    }
-
+    // always the logged-in person's pharmacy (any pharmacy_id sent is ignored)
     const row = {
       category: 'General',
       price: 0,
       expiry_date: null,
       ...fields,
-      pharmacy_id: pid,
     };
-    const { data, error } = await supabase.from('products').insert(row).select().single();
+    const { data, error } = await req.pharmacy.insert('products', row).select().single();
     if (error) throw error;
-    res.status(201).json(withStatus(data, await getStockRules()));
+    res.status(201).json(withStatus(data, await getStockRules(req.pharmacy.id)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -154,11 +144,11 @@ router.put('/:id', async (req, res) => {
     if (invalid) return res.status(400).json({ error: invalid });
     if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
 
-    const { data, error } = await supabase
-      .from('products').update(updates).eq('id', req.params.id).select().maybeSingle();
+    const { data, error } = await req.pharmacy
+      .update('products', updates).eq('id', req.params.id).select().maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Product not found' });
-    res.json(withStatus(data, await getStockRules()));
+    res.json(withStatus(data, await getStockRules(req.pharmacy.id)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -167,7 +157,7 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/products/:id – contract: { ok: true }
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase.from('products').delete().eq('id', req.params.id);
+    const { error } = await req.pharmacy.delete('products').eq('id', req.params.id);
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {

@@ -18,12 +18,13 @@ export const normPaymentStatus = (s) => {
   return 'Pending';
 };
 
-// Loads all orders joined with customer and product names, newest first
-export async function loadOrders() {
+// Loads one pharmacy's orders joined with customer and product names, newest first.
+// pharmacy = req.pharmacy (lib/tenant.js)
+export async function loadOrders(pharmacy) {
   const [orders, customers, products] = await Promise.all([
-    selectAll(() => supabase.from('orders').select('*').order('order_date', { ascending: false })),
-    selectAll(() => supabase.from('customers').select('id, name')),
-    selectAll(() => supabase.from('products').select('id, name, category, price')),
+    selectAll(() => pharmacy.select('orders', '*').order('order_date', { ascending: false })),
+    selectAll(() => pharmacy.select('customers', 'id, name')),
+    selectAll(() => pharmacy.select('products', 'id, name, category, price')),
   ]);
 
   const cMap = new Map(customers.map((x) => [x.id, x]));

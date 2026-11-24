@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAccess } from '../lib/access';
-import { Search, Plus, Minus, Trash2, CheckCircle2, ShoppingCart, UserPlus } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CheckCircle2, ShoppingCart, UserPlus, Printer } from 'lucide-react';
+import PrintReceipt from '../components/PrintReceipt';
 
 const API = import.meta.env.VITE_API_URL;
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
@@ -223,7 +224,14 @@ export default function Sell() {
           </div>
         </div>
 
+        <PrintReceipt receipt={receipt} />
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-xl bg-sidebar px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#145540]"
+          >
+            <Printer size={16} /> Print receipt
+          </button>
           <button
             onClick={newSale}
             className="rounded-xl bg-lime px-5 py-2.5 text-sm font-semibold text-sidebar hover:bg-[#cfe85c]"

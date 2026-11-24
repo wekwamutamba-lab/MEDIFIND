@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
+import { canSeeSupplier, ownsSupplier } from '../lib/tenant.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
+
+// Suppliers with no pharmacy_id are the shared directory: every pharmacy sees them,
+// nobody can change them from the app. Suppliers a pharmacy adds are its own: only
+// it can see, edit or delete them and their catalogue.
 
 const FIELDS = ['name', 'address', 'phone', 'whatsapp', 'email', 'delivery_hours', 'notes'];
 const pick = (body) => {
@@ -13,18 +18,46 @@ const pick = (body) => {
   return out;
 };
 
+async function getSupplier(id) {
+  const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// Loads the supplier and checks this pharmacy may see it (or change it, with own = true).
+// Sends the error response and returns null when it may not.
+async function supplierFor(req, res, { own = false } = {}) {
+  const s = await getSupplier(req.params.id);
+  if (!canSeeSupplier(s, req.pharmacy.id)) {
+    res.status(404).json({ error: 'Supplier not found' });
+    return null;
+  }
+  if (own && !ownsSupplier(s, req.pharmacy.id)) {
+    res.status(403).json({ error: 'This supplier is in the shared directory and cannot be changed. Add your own supplier instead.', code: 'SHARED_SUPPLIER' });
+    return null;
+  }
+  return s;
+}
+
+const shape = (s, pharmacyId, count) => {
+  const { pharmacy_id, ...rest } = s;
+  return { ...rest, shared: pharmacy_id == null, own: pharmacy_id === pharmacyId, product_count: count };
+};
+
 // GET /api/suppliers?search=
 router.get('/', async (req, res) => {
   try {
     const search = String(req.query.search || '').trim().toLowerCase();
-    const [suppliers, products] = await Promise.all([
-      selectAll(() => supabase.from('suppliers').select('*').order('name')),
-      selectAll(() => supabase.from('supplier_products').select('id, supplier_id')),
-    ]);
+    const suppliers = (await selectAll(() => supabase.from('suppliers').select('*').order('name')))
+      .filter((s) => canSeeSupplier(s, req.pharmacy.id));
+    const ids = suppliers.map((s) => s.id);
+    const products = ids.length
+      ? await selectAll(() => supabase.from('supplier_products').select('id, supplier_id').in('supplier_id', ids))
+      : [];
     const counts = new Map();
     for (const r of products) counts.set(r.supplier_id, (counts.get(r.supplier_id) || 0) + 1);
 
-    let rows = suppliers.map((x) => ({ ...x, product_count: counts.get(x.id) || 0 }));
+    let rows = suppliers.map((x) => shape(x, req.pharmacy.id, counts.get(x.id) || 0));
     if (search) {
       rows = rows.filter(
         (x) =>
@@ -38,37 +71,39 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/suppliers
+// POST /api/suppliers  -> a new supplier of this pharmacy's own
 router.post('/', async (req, res) => {
   try {
     const row = pick(req.body);
     if (!row.name || !String(row.name).trim()) {
       return res.status(400).json({ error: 'Supplier name is required' });
     }
-    const { data, error } = await supabase.from('suppliers').insert(row).select().single();
+    const { data, error } = await req.pharmacy.insert('suppliers', row).select().single();
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(shape(data, req.pharmacy.id, 0));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT /api/suppliers/:id
+// PUT /api/suppliers/:id  (own suppliers only)
 router.put('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('suppliers').update(pick(req.body)).eq('id', req.params.id).select().single();
+    if (!(await supplierFor(req, res, { own: true }))) return;
+    const { data, error } = await req.pharmacy
+      .update('suppliers', pick(req.body)).eq('id', req.params.id).select().single();
     if (error) throw error;
-    res.json(data);
+    res.json(shape(data, req.pharmacy.id, undefined));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /api/suppliers/:id
+// DELETE /api/suppliers/:id  (own suppliers only)
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase.from('suppliers').delete().eq('id', req.params.id);
+    if (!(await supplierFor(req, res, { own: true }))) return;
+    const { error } = await req.pharmacy.delete('suppliers').eq('id', req.params.id);
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
@@ -79,6 +114,7 @@ router.delete('/:id', async (req, res) => {
 // GET /api/suppliers/:id/products
 router.get('/:id/products', async (req, res) => {
   try {
+    if (!(await supplierFor(req, res))) return;
     const { data, error } = await supabase
       .from('supplier_products').select('*').eq('supplier_id', req.params.id).order('product_name');
     if (error) throw error;
@@ -88,9 +124,10 @@ router.get('/:id/products', async (req, res) => {
   }
 });
 
-// POST /api/suppliers/:id/products
+// POST /api/suppliers/:id/products  (own suppliers only)
 router.post('/:id/products', async (req, res) => {
   try {
+    if (!(await supplierFor(req, res, { own: true }))) return;
     const { product_name, category, unit_price, stock } = req.body || {};
     if (!product_name || !String(product_name).trim()) {
       return res.status(400).json({ error: 'Product name is required' });
@@ -112,9 +149,10 @@ router.post('/:id/products', async (req, res) => {
   }
 });
 
-// DELETE /api/suppliers/:id/products/:pid
+// DELETE /api/suppliers/:id/products/:pid  (own suppliers only)
 router.delete('/:id/products/:pid', async (req, res) => {
   try {
+    if (!(await supplierFor(req, res, { own: true }))) return;
     const { error } = await supabase
       .from('supplier_products').delete().eq('id', req.params.pid).eq('supplier_id', req.params.id);
     if (error) throw error;

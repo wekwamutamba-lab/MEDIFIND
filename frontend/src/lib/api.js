@@ -139,3 +139,8 @@ export const newJoinCode = () => request('/staff/join-code', { method: 'POST' })
 // ---------- Settings (admin) ----------
 export const getSettings = () => request('/settings');
 export const updateSettings = (body) => request('/settings', { method: 'PUT', body: JSON.stringify(body) });
+
+// ---------- New pharmacy registrations (MediFind platform owners only) ----------
+export const getRegistrations = () => request('/platform/registrations');
+export const decideRegistration = (id, decision) =>
+  request(`/platform/registrations/${id}/${decision === 'approve' ? 'approve' : 'decline'}`, { method: 'POST' });

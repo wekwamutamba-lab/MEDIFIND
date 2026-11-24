@@ -1,10 +1,8 @@
 import { Router } from 'express';
-import * as sb from '../lib/supabase.js';
 import { loadOrders, normOrderStatus, normPaymentStatus } from '../lib/data.js';
 import { adjustStock, restoreStock, exactIlike } from '../lib/stock.js';
 import { isAdmin, staffName } from '../lib/auth.js';
 
-const supabase = sb.supabase || sb.default;
 const router = Router();
 
 // GET /api/orders?search=&status=&page=1&limit=10
@@ -18,7 +16,7 @@ router.get('/', async (req, res) => {
     );
 
     // Till operators only see the sales they made themselves
-    let all = await loadOrders();
+    let all = await loadOrders(req.pharmacy);
     if (!isAdmin(req)) all = all.filter((o) => o.cashier_id === req.user.id);
     const stats = {
       total: all.length,
@@ -65,35 +63,35 @@ router.post('/', async (req, res) => {
 
     let product;
     if (product_id) {
-      const { data, error: pe } = await supabase
-        .from('products').select('*').eq('id', product_id).single();
+      const { data, error: pe } = await req.pharmacy
+        .select('products', '*').eq('id', product_id).maybeSingle();
       if (pe || !data) return res.status(404).json({ error: 'Product not found' });
       product = data;
     } else {
-      const { data, error: pe } = await supabase
-        .from('products').select('*').ilike('name', exactIlike(product_name)).limit(1);
+      const { data, error: pe } = await req.pharmacy
+        .select('products', '*').ilike('name', exactIlike(product_name)).limit(1);
       if (pe) throw pe;
       if (!data || !data.length) return res.status(404).json({ error: 'Product not found' });
       product = data[0];
     }
 
+    const pharmacyId = req.pharmacy.id;
     // Take the stock first; this fails with 400 if there is not enough
-    await adjustStock(product.id, -quantity);
+    await adjustStock(product.id, -quantity, { pharmacyId });
 
     let orderId = null;
     try {
       // find or create the customer
       let customerId;
-      const { data: found, error: fe } = await supabase
-        .from('customers').select('id').ilike('name', exactIlike(name)).limit(1);
+      const { data: found, error: fe } = await req.pharmacy
+        .select('customers', 'id').ilike('name', exactIlike(name)).limit(1);
       if (fe) throw fe;
       if (found && found.length) {
         customerId = found[0].id;
       } else {
         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '.');
-        const { data: created, error: ce } = await supabase
-          .from('customers')
-          .insert({ name, email: `${slug}@walkin.medifind`, phone: null, address: null })
+        const { data: created, error: ce } = await req.pharmacy
+          .insert('customers', { name, email: `${slug}@walkin.medifind`, phone: null, address: null })
           .select('id').single();
         if (ce) throw ce;
         customerId = created.id;
@@ -101,9 +99,8 @@ router.post('/', async (req, res) => {
 
       const total = Math.round(quantity * Number(product.price || 0) * 100) / 100;
       const now = new Date().toISOString();
-      const { data: order, error: oe } = await supabase
-        .from('orders')
-        .insert({
+      const { data: order, error: oe } = await req.pharmacy
+        .insert('orders', {
           customer_id: customerId,
           product_id: product.id,
           quantity,
@@ -118,21 +115,21 @@ router.post('/', async (req, res) => {
       if (oe) throw oe;
       orderId = order.id;
 
-      const { error: pye } = await supabase.from('payments').insert({
+      const { error: pye } = await req.pharmacy.insert('payments', {
         order_id: order.id, amount: total, status: 'Pending', method: 'Cash', payment_date: now,
       });
       if (pye) throw pye;
     } catch (err) {
       // Undo so a failed order does not leave stock missing or a half-saved order behind
       if (orderId) {
-        await supabase.from('payments').delete().eq('order_id', orderId);
-        await supabase.from('orders').delete().eq('id', orderId);
+        await req.pharmacy.delete('payments').eq('order_id', orderId);
+        await req.pharmacy.delete('orders').eq('id', orderId);
       }
-      await restoreStock(product.id, quantity);
+      await restoreStock(product.id, quantity, pharmacyId);
       throw err;
     }
 
-    const all = await loadOrders();
+    const all = await loadOrders(req.pharmacy);
     res.status(201).json(all.find((o) => o.id === orderId));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
@@ -152,9 +149,9 @@ router.patch('/:id', async (req, res) => {
     }
     const next = normOrderStatus(raw);
 
-    const { data: row, error: re } = await supabase
-      .from('orders')
-      .select('id, status, payment_status, product_id, quantity')
+    const pharmacyId = req.pharmacy.id;
+    const { data: row, error: re } = await req.pharmacy
+      .select('orders', 'id, status, payment_status, product_id, quantity')
       .eq('id', req.params.id)
       .maybeSingle();
     if (re) throw re;
@@ -183,41 +180,39 @@ router.patch('/:id', async (req, res) => {
     }
 
     // Re-opening needs the stock to still be there (400 if not)
-    if (stockDelta < 0) await adjustStock(row.product_id, stockDelta);
+    if (stockDelta < 0) await adjustStock(row.product_id, stockDelta, { pharmacyId });
 
     // Only apply if nobody changed the status since we read it
-    const { data: changed, error: ue } = await supabase
-      .from('orders')
-      .update(updates)
+    const { data: changed, error: ue } = await req.pharmacy
+      .update('orders', updates)
       .eq('id', row.id)
       .eq('status', row.status)
       .select('id');
     if (ue || !changed?.length) {
-      if (stockDelta < 0) await restoreStock(row.product_id, -stockDelta);
+      if (stockDelta < 0) await restoreStock(row.product_id, -stockDelta, pharmacyId);
       if (ue) throw ue;
       return res.status(409).json({ error: 'This order was just changed. Reload and try again.' });
     }
 
     if (stockDelta > 0) {
       try {
-        await adjustStock(row.product_id, stockDelta);
+        await adjustStock(row.product_id, stockDelta, { pharmacyId });
       } catch (err) {
         // Could not return the stock, so undo the cancellation
-        await supabase
-          .from('orders')
-          .update({ status: row.status, payment_status: row.payment_status })
+        await req.pharmacy
+          .update('orders', { status: row.status, payment_status: row.payment_status })
           .eq('id', row.id);
         throw err;
       }
     }
 
     if (paymentStatus) {
-      const { error: pe } = await supabase
-        .from('payments').update({ status: paymentStatus }).eq('order_id', row.id);
+      const { error: pe } = await req.pharmacy
+        .update('payments', { status: paymentStatus }).eq('order_id', row.id);
       if (pe) throw pe;
     }
 
-    const all = await loadOrders();
+    const all = await loadOrders(req.pharmacy);
     res.json(all.find((o) => o.id === row.id));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });

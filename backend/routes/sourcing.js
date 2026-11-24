@@ -3,6 +3,7 @@ import * as sb from '../lib/supabase.js';
 import { adjustStock, exactIlike } from '../lib/stock.js';
 import { selectAll } from '../lib/selectAll.js';
 import { askGemini } from '../lib/gemini.js';
+import { canSeeSupplier } from '../lib/tenant.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -30,11 +31,19 @@ function fallbackParse(query) {
   };
 }
 
-async function findRows(term) {
+// The shared supplier directory plus this pharmacy's own suppliers
+async function visibleSuppliers(pharmacyId, cols = '*') {
+  const all = await selectAll(() => supabase.from('suppliers').select(cols === '*' ? '*' : `${cols}, pharmacy_id`));
+  return all.filter((s) => canSeeSupplier(s, pharmacyId));
+}
+
+async function findRows(term, supplierIds) {
+  if (!supplierIds.length) return [];
   return selectAll(() =>
     supabase
       .from('supplier_products')
       .select('*')
+      .in('supplier_id', supplierIds)
       .ilike('product_name', `%${term}%`)
       .gt('stock', 0)
   );
@@ -61,17 +70,18 @@ router.post('/find', async (req, res) => {
       console.warn('Gemini parse failed, using keyword parsing:', e.message);
     }
 
-    let rows = await findRows(parsed.medicine);
+    const sups = await visibleSuppliers(req.pharmacy.id);
+    const sMap = new Map(sups.map((s) => [s.id, s]));
+    const ids = [...sMap.keys()];
+
+    let rows = await findRows(parsed.medicine, ids);
     if (!rows.length) {
       const words = query.toLowerCase().split(/\W+/).filter((x) => x.length >= 4 && !STOP.has(x));
       for (const w of words) {
-        rows = await findRows(w);
+        rows = await findRows(w, ids);
         if (rows.length) break;
       }
     }
-
-    const sups = await selectAll(() => supabase.from('suppliers').select('*'));
-    const sMap = new Map(sups.map((s) => [s.id, s]));
 
     const results = rows.map((r) => {
       const s = sMap.get(r.supplier_id) || {};
@@ -117,6 +127,11 @@ router.post('/restock', async (req, res) => {
       return res.status(400).json({ error: 'supplier_id and product_name are required' });
     }
 
+    // only a supplier this pharmacy can see (shared, or its own)
+    const { data: sup, error: se } = await supabase.from('suppliers').select('id, pharmacy_id').eq('id', supplier_id).maybeSingle();
+    if (se) throw se;
+    if (!canSeeSupplier(sup, req.pharmacy.id)) return res.status(404).json({ error: 'Supplier not found' });
+
     const { data: sp, error: e1 } = await supabase
       .from('supplier_products')
       .select('*')
@@ -127,9 +142,8 @@ router.post('/restock', async (req, res) => {
     if (!sp?.length) return res.status(404).json({ error: 'Supplier does not stock that product' });
 
     const total = Math.round(quantity * Number(sp[0].unit_price) * 100) / 100;
-    const { data, error } = await supabase
-      .from('restock_orders')
-      .insert({ supplier_id, product_name: sp[0].product_name, quantity, total, status: 'Ordered' })
+    const { data, error } = await req.pharmacy
+      .insert('restock_orders', { supplier_id, product_name: sp[0].product_name, quantity, total, status: 'Ordered' })
       .select()
       .single();
     if (error) throw error;
@@ -144,9 +158,9 @@ router.get('/restock', async (req, res) => {
   try {
     const [orders, suppliers] = await Promise.all([
       selectAll(() =>
-        supabase.from('restock_orders').select('*').order('created_at', { ascending: false })
+        req.pharmacy.select('restock_orders', '*').order('created_at', { ascending: false })
       ),
-      selectAll(() => supabase.from('suppliers').select('id, name')),
+      visibleSuppliers(req.pharmacy.id, 'id, name'),
     ]);
     const names = new Map(suppliers.map((x) => [x.id, x.name]));
     const data = orders.map((r) => ({ ...r, supplier: names.get(r.supplier_id) || 'Unknown' }));
@@ -166,17 +180,17 @@ router.get('/restock', async (req, res) => {
 // PATCH /api/restock/:id/receive  -> adds the quantity to inventory
 router.patch('/restock/:id/receive', async (req, res) => {
   try {
-    const { data: order, error } = await supabase
-      .from('restock_orders')
-      .select('*')
+    const pharmacyId = req.pharmacy.id;
+    const { data: order, error } = await req.pharmacy
+      .select('restock_orders', '*')
       .eq('id', req.params.id)
-      .single();
+      .maybeSingle();
     if (error || !order) return res.status(404).json({ error: 'Restock order not found' });
     if (order.status === 'Received') return res.json(order);
 
     // Find the inventory product to add the stock to (an explicit product_id wins).
     // If several products share the name, the one with the least stock gets it.
-    let q = supabase.from('products').select('id, quantity');
+    let q = req.pharmacy.select('products', 'id, quantity');
     q = req.body?.product_id
       ? q.eq('id', req.body.product_id)
       : q.ilike('name', exactIlike(order.product_name)).order('quantity', { ascending: true });
@@ -190,24 +204,23 @@ router.patch('/restock/:id/receive', async (req, res) => {
 
     // Claim the order first: only one request can move it from its current status to
     // Received, so a double click cannot add the stock twice
-    const { data: claimed, error: e2 } = await supabase
-      .from('restock_orders')
-      .update({ status: 'Received' })
+    const { data: claimed, error: e2 } = await req.pharmacy
+      .update('restock_orders', { status: 'Received' })
       .eq('id', order.id)
       .eq('status', order.status)
       .select();
     if (e2) throw e2;
     if (!claimed?.length) {
-      const { data: current } = await supabase
-        .from('restock_orders').select('*').eq('id', order.id).single();
+      const { data: current } = await req.pharmacy
+        .select('restock_orders', '*').eq('id', order.id).maybeSingle();
       return res.json(current || order);
     }
 
     try {
-      await adjustStock(prods[0].id, Number(order.quantity) || 0);
+      await adjustStock(prods[0].id, Number(order.quantity) || 0, { pharmacyId });
     } catch (err) {
       // Stock was not added, so put the order back to its previous status
-      await supabase.from('restock_orders').update({ status: order.status }).eq('id', order.id);
+      await req.pharmacy.update('restock_orders', { status: order.status }).eq('id', order.id);
       throw err;
     }
     res.json(claimed[0]);

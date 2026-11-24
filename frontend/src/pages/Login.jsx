@@ -293,7 +293,7 @@ export default function Login() {
   const heading = {
     login: ['Welcome back', 'Log in to your pharmacy.'],
     join: ['Join your pharmacy', 'Ask your pharmacy admin for the join code. They approve your account before you can start.'],
-    register: ['Register a pharmacy', 'You will be the pharmacy admin. An existing MediFind admin approves new admin accounts.'],
+    register: ['Register a pharmacy', 'Your pharmacy gets its own private space with you as its admin. MediFind checks each new pharmacy before it opens.'],
   }[tab];
 
   return (
