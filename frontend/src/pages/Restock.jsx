@@ -8,6 +8,7 @@ import {
   getRestockOrders,
   receiveRestock,
 } from '../lib/api';
+import { waNumber } from '../lib/phone';
 
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
@@ -15,13 +16,6 @@ const urgencyStyle = {
   high: 'bg-red-100 text-red-700',
   medium: 'bg-orange-100 text-orange-700',
   low: 'bg-green-100 text-green-700',
-};
-
-// Turns 0771234567 or +263 77 123 4567 into 263771234567 for wa.me links
-const waNumber = (raw) => {
-  let d = String(raw || '').replace(/\D/g, '');
-  if (d.startsWith('0')) d = '263' + d.slice(1);
-  return d;
 };
 
 export default function Restock() {

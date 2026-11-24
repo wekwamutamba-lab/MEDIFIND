@@ -18,9 +18,12 @@ MediFind gives a pharmacy one place to sell, track stock, and reorder. An AI ass
 ## Features
 
 - **Till (New Sale):** a fast point-of-sale screen. Each sale updates stock, the order and the payment, and records which staff member made it. **Print receipt** prints a receipt with the pharmacy's name, address, contact details and licence number, sized for an 80 mm till printer (it also prints on A4 or saves as a PDF).
+- **Type the sale:** on New Sale, type "2 paracetamol and 1 amoxicillin for Tendai". MediFind finds each medicine in the pharmacy's own products and lists every line for the till operator to check, change or skip before it goes into the sale. The AI only reads the note: it can only pick from the pharmacy's own product list, and the customer's name and any phone number are removed before the note is sent. Without the AI, built-in rules read the note.
 - **Separate pharmacies:** many pharmacies can use MediFind, and each one only ever sees its own products, sales, customers, payments, staff, settings and private suppliers. The server enforces this on every request.
 - **Inventory:** add, edit and search products. Each one is marked In Stock, Low Stock or Out of Stock, using the low-stock level the pharmacy sets on the Settings page. Stock close to expiry is marked Expires soon, and stock past its date is marked Expired.
 - **Dashboard:** orders, revenue, customers, low stock, monthly sales and top sellers.
+- **Stock-out forecast:** the dashboard lists what will run out in the next 14 days at the rate it sold over the last 4 weeks ("Paracetamol runs out in about 6 days"), with a suggested order for 30 days and a **Find suppliers** button that opens Restock with it filled in. This is plain arithmetic on the pharmacy's own sales, not AI.
+- **Weekly summary:** the last 7 days in plain words: sales compared with the week before, best sellers, busiest day, sales by staff member, and what is running out, low or expiring. Buttons send it by WhatsApp or email to the pharmacy's own number and address from Settings, or copy it. Every figure is counted by fixed rules, not AI.
 - **Orders, sales, customers and payments:** searchable lists with filters and pagination.
 - **Export:** download products, orders, sales, customers and payments as CSV, Excel (.xlsx) or PDF. The file holds every row that matches the search and filters on screen, not just the current page.
 - **Settings (admin):** the pharmacy's profile, the stock rules (low-stock level and how many days before expiry to warn), and changing your password.
@@ -66,7 +69,8 @@ MEDIFIND/
     public/onboarding/ login page photos (see CREDITS.txt)
   backend/             Express API
     routes/            one file per area (products, orders, pos, ai, sourcing, staff...)
-    lib/               auth and roles, Gemini helper, rate limiter, stock helpers
+    lib/               auth and roles, Gemini helper, rate limiter, stock helpers,
+                       sale-note reader, stock-out forecast, weekly summary
     supabase/          schema, seed data and migration SQL
   docs/                AI integration, ethics statement, API notes, screenshots
 ```
@@ -172,23 +176,20 @@ npm run dev        # app on http://localhost:5173
 - Each staff account belongs to one pharmacy. One login cannot yet switch between several branches.
 - Profit figures use an assumed margin and are estimates.
 - A sale on one till shows on another only after that screen reloads its data.
+- The stock-out forecast assumes each item keeps selling at the rate of the last 4 weeks. It does not know about seasons, outbreaks or one-off bulk sales.
+- The weekly summary is sent by pressing a button. It is not yet sent automatically.
 
 ## Roadmap (not built yet)
 
-Only the features listed above are built. Staff roles, approval and separate pharmacies are the parts of the product roadmap that have shipped.
+Only the features listed above are built. Staff roles, approval, separate pharmacies, printed receipts, typed sales, the stock-out forecast and the weekly summary are the parts of the product roadmap that have shipped.
 
-**Next: AI that saves time on every sale**
-
-- **Sales from typed notes:** type "2 paracetamol and 1 amoxicillin for Tendai" and the cart fills itself.
-- **Stock-out forecast:** "Paracetamol runs out in about 6 days", with a draft supplier request.
-- **Weekly summary:** a plain-language report sent to the owner by WhatsApp or email.
-
-**Later: a smoother till**
+**Next: a smoother till**
 
 - Barcode scanning with a USB scanner or the phone camera
 - Held sales, refunds and returns
 - Shift open and close with a cash-up for each till operator
-- Receipts sent by WhatsApp, or printed
+- Receipts sent by WhatsApp
+- The weekly summary sent automatically every Monday (this needs a WhatsApp Business or email-sending account)
 - Batch tracking that sells the earliest-expiring batch first
 - Two currencies (USD and local) at a rate the admin sets
 - Offline mode that queues sales and syncs when the connection returns

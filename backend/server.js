@@ -18,6 +18,7 @@ import meRouter from './routes/me.js';
 import staffRouter from './routes/staff.js';
 import settingsRouter from './routes/settings.js';
 import platformRouter from './routes/platform.js';
+import reportsRouter from './routes/reports.js';
 
 const app = express();
 
@@ -38,7 +39,7 @@ app.use('/api/me', meRouter);
 app.use('/api', requireActive, enforceRole);
 
 // Endpoints that call Gemini are rate limited per user and overall (see lib/rateLimit.js)
-app.post(['/api/find', '/api/insights'], createAiLimiter());
+app.post(['/api/find', '/api/insights', '/api/pos/note'], createAiLimiter());
 
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
@@ -50,6 +51,7 @@ app.use('/api/pos', posRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/settings', settingsRouter); // admin only (not in TILL_ALLOWED)
 app.use('/api/platform', platformRouter); // platform owners only: approve new pharmacies
+app.use('/api/reports', reportsRouter); // admin only: stock-out forecast, weekly summary
 app.use('/api/stats', statsRouter);
 app.use('/api', statsRouter); // alias: /api/overview and /api/sales
 app.use('/api', sourcingRouter); // POST /api/find, /api/restock

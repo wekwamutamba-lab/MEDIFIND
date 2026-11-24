@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAccess } from '../lib/access';
 import { Search, Plus, Minus, Trash2, CheckCircle2, ShoppingCart, UserPlus, Printer } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
+import SaleNote from '../components/SaleNote';
 
 const API = import.meta.env.VITE_API_URL;
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
@@ -111,6 +112,29 @@ export default function Sell() {
         { product_id: p.id, name: p.name, price: Number(p.price) || 0, stock: p.quantity, qty: 1 },
       ];
     });
+  };
+
+  // Lines checked in "Type the sale" (never more than is in stock)
+  const addLines = (lines, customer) => {
+    setError('');
+    setCart((c) => {
+      let next = [...c];
+      for (const { product: p, qty } of lines) {
+        const found = next.find((x) => x.product_id === p.id);
+        if (found) {
+          next = next.map((x) =>
+            x.product_id === p.id ? { ...x, qty: Math.min(x.qty + qty, x.stock) } : x
+          );
+        } else {
+          next.push({ product_id: p.id, name: p.name, price: p.price, stock: p.quantity, qty: Math.min(qty, p.quantity) });
+        }
+      }
+      return next;
+    });
+    if (customer && !cName.trim()) {
+      setCName(customer);
+      setPicked(false);
+    }
   };
 
   const setQty = (id, value) => {
@@ -286,6 +310,8 @@ export default function Sell() {
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Medicines */}
         <div className="space-y-4 lg:col-span-3">
+          <SaleNote onAdd={addLines} />
+
           <div className="relative">
             <Search
               size={16}

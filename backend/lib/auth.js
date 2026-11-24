@@ -61,6 +61,7 @@ const TILL_ALLOWED = [
   ['GET', /^\/orders\/?$/], // their own sales (filtered in routes/orders.js)
   ['POST', /^\/orders\/?$/],
   ['POST', /^\/pos\/checkout\/?$/], // New Sale
+  ['POST', /^\/pos\/note\/?$/], // New Sale: read a typed note (nothing is sold until they add it)
   ['GET', /^\/support\/?$/],
   ['POST', /^\/support\/?$/],
 ];

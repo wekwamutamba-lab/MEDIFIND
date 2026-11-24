@@ -8,6 +8,18 @@ const FAQ = [
     a: 'Pill reads your inventory, finds products that are low, out of stock or close to expiry, and asks an AI model to write a short summary and restock suggestions. You decide what to do with them.',
   },
   {
+    q: 'How do I type a sale instead of searching for each medicine?',
+    a: 'On New Sale, type what the customer wants in the "Type the sale" box, for example "2 paracetamol and 1 amoxicillin for Tendai", and press Read. MediFind finds each medicine in your stock and lists it with its price and stock. Check each line, change or skip any that are wrong, then press Add to sale. Nothing is sold until you press Complete sale.',
+  },
+  {
+    q: 'How does "Running out soon" on the dashboard work?',
+    a: 'It divides how many of each item you sold in the last 4 weeks by 28 to get a daily rate, then works out how many days your stock will last at that rate. The suggested order covers 30 days of sales. It is plain arithmetic, not AI, so it does not know about seasons or one-off bulk sales.',
+  },
+  {
+    q: 'How do I send myself the weekly summary?',
+    a: 'On the dashboard, the "This week" card has WhatsApp, Email and Copy buttons. They use the WhatsApp number and email on Settings > Pharmacy, so add those first. The figures are counted from your own records, not written by AI.',
+  },
+  {
     q: 'How do I find a supplier for something I am running out of?',
     a: 'Open Restock and type what you need in plain words, for example "200 amoxicillin urgently". MediFind shows the suppliers that sell it, ranked by delivery time or price.',
   },
@@ -21,7 +33,7 @@ const FAQ = [
   },
   {
     q: 'Is my data private?',
-    a: 'Yes. You must log in to use the app, and only stock data and the text you type are sent to the AI. Customer and payment details are never sent to it.',
+    a: 'Yes. You must log in to use the app, and each pharmacy only ever sees its own data. Only stock data and the text you type are sent to the AI. Customer names and phone numbers are taken out of a typed sale before the AI reads it, and customer and payment records are never sent to it.',
   },
   {
     q: 'Does the AI give medical advice?',

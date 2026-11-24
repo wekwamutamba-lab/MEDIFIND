@@ -2,6 +2,9 @@ import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { adjustStock, restoreStock } from '../lib/stock.js';
 import { staffName } from '../lib/auth.js';
+import { selectAll } from '../lib/selectAll.js';
+import { askGemini } from '../lib/gemini.js';
+import { readSaleNote, MAX_NOTE } from '../lib/saleNote.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -35,6 +38,23 @@ async function findOrCreateCustomer(pharmacy, { name, phone, email }) {
   if (error) throw error;
   return { customer: created, created: true };
 }
+
+// POST /api/pos/note  { note: "2 paracetamol and 1 amoxicillin for Tendai" }
+// Finds the medicines in this pharmacy's products for the till operator to check.
+// It does not sell anything or change stock.
+router.post('/note', async (req, res) => {
+  try {
+    const note = clean(req.body?.note);
+    if (!note) return res.status(400).json({ error: 'Type what the customer wants first' });
+    if (note.length > MAX_NOTE) return res.status(400).json({ error: `Keep the note under ${MAX_NOTE} characters` });
+    const products = await selectAll(() => req.pharmacy.select('products', 'id, name, price, quantity'));
+    // the AI is only asked when there is a key; otherwise the plain rules read the note
+    const ask = process.env.GEMINI_API_KEY ? askGemini : undefined;
+    res.json(await readSaleNote(note, products, { ask }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // POST /api/pos/checkout
 // { customer_name, phone, email, payment_method, items: [{ product_id, quantity }] }

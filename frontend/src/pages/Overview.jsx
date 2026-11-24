@@ -13,6 +13,8 @@ import {
 import { ShoppingCart, Banknote, Users, AlertTriangle, Sparkles, Pill } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getOverview, getInsights } from '../lib/api';
+import RunningOut from '../components/RunningOut';
+import WeeklySummary from '../components/WeeklySummary';
 
 const money = (n) =>
   `$${Number(n || 0).toLocaleString(undefined, {
@@ -175,6 +177,12 @@ export default function Overview() {
           value={loading ? '…' : data?.lowStock ?? 0}
           sub="Low or out of stock"
         />
+      </div>
+
+      {/* Stock-out forecast and the weekly summary */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RunningOut />
+        <WeeklySummary />
       </div>
 
       {/* Pill stock assistant */}

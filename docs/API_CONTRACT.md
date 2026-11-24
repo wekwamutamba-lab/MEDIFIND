@@ -19,6 +19,7 @@
 | `GET /products` | Products with stock status and expiry flags (`expiring_soon`, `expired`), plus search, filters and pages of up to 100 | Admin, till |
 | `POST /products`, `PUT /products/:id`, `DELETE /products/:id` | Add, edit or delete a product | Admin |
 | `POST /pos/checkout` | Complete a sale: creates the order and payment, updates stock and records the cashier. The reply includes `pharmacy` (name, address, contact, licence) and `cashier` for the printed receipt | Admin, till |
+| `POST /pos/note` | Type the sale: `{ note }` (up to 500 characters). Returns `{ customer_name, lines: [{ said, quantity, product_id, options, check }], used_ai }`. Sells nothing (rate limited) | Admin, till |
 | `GET /orders` | Orders. Till operators see only their own. | Admin, till |
 | `POST /orders` | Create an order | Admin, till |
 | `PATCH /orders/:id` | Update an order's status | Admin |
@@ -26,6 +27,8 @@
 | `GET /payments` | Payments | Admin |
 | `GET /overview`, `GET /sales` | Dashboard and sales figures | Admin |
 | `POST /insights` | Pill AI stock insights (rate limited) | Admin |
+| `GET /reports/forecast?days=14` | Products that run out within that many days (1 to 90) at the last 4 weeks' rate, with a suggested order | Admin |
+| `GET /reports/weekly` | The last 7 days compared with the week before, as figures and as a ready-to-send `text`, plus `send_to` (the pharmacy's WhatsApp and email) | Admin |
 | `POST /find` | AI supplier search, `{ query }` (rate limited) | Admin |
 | `GET /restock`, `POST /restock` | List restock orders or place one | Admin |
 | `PATCH /restock/:id/receive` | Mark a restock order received and add the stock | Admin |
