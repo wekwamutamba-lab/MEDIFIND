@@ -193,7 +193,7 @@ function Slides() {
           </div>
         </div>
 
-        <p className="text-xs text-white/50">Photos: Unsplash</p>
+        <p className="text-xs text-white/50"></p>
       </div>
     </div>
   );
