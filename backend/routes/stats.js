@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { loadOrders, byMonth } from '../lib/data.js';
+import { getStockRules } from '../lib/stockRules.js';
 import { localParts } from '../lib/time.js';
 
 const supabase = sb.supabase || sb.default;
@@ -19,10 +20,12 @@ router.get('/overview', async (req, res) => {
       .from('customers')
       .select('*', { count: 'exact', head: true });
 
+    // low or out of stock, using the pharmacy's own low-stock level
+    const rules = await getStockRules();
     const { count: lowStock } = await supabase
       .from('vw_products_with_status')
       .select('*', { count: 'exact', head: true })
-      .neq('status', 'In Stock');
+      .lt('quantity', rules.lowStock);
 
     const byProduct = new Map();
     for (const o of valid) {

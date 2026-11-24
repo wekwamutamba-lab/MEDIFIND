@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
+import { getStockRules, stockStatus, expiryFlags } from '../lib/stockRules.js';
 const supabase = sb.supabase || sb.default;
 const router = Router();
 
@@ -13,9 +14,11 @@ const normStatus = (s) => {
   return null;
 };
 
-const withStatus = (p) => ({
+// Status and expiry flags use the pharmacy's own rules from the Settings page
+const withStatus = (p, rules) => ({
   ...p,
-  status: p.quantity === 0 ? 'Out of Stock' : p.quantity < 20 ? 'Low Stock' : 'In Stock',
+  status: stockStatus(p.quantity, rules),
+  ...expiryFlags(p.expiry_date, rules),
 });
 
 // GET /api/products – contract: { data, total, stats:{total,low,out}, categories:[{name,count}] }
@@ -25,11 +28,15 @@ router.get('/', async (req, res) => {
     const pageNum = Math.max(parseInt(page) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(limit) || 10, 1), 100);
 
+    const rules = await getStockRules();
     let q = supabase.from('vw_products_with_status').select('*', { count: 'exact' });
     if (search) q = q.ilike('name', `%${search}%`);
     if (category) q = q.eq('category', category);
+    // filter on quantity, so the pharmacy's own low-stock level applies
     const st = normStatus(status);
-    if (st) q = q.eq('status', st);
+    if (st === 'Out of Stock') q = q.lte('quantity', 0);
+    if (st === 'Low Stock') q = q.gt('quantity', 0).lt('quantity', rules.lowStock);
+    if (st === 'In Stock') q = q.gte('quantity', rules.lowStock);
     // pagination
     const from = (pageNum - 1) * limitNum;
     const to = from + limitNum - 1;
@@ -41,14 +48,15 @@ router.get('/', async (req, res) => {
 
     // stats & categories over ALL products (not only page)
     const allRows = await selectAll(() =>
-      supabase.from('vw_products_with_status').select('id, category, status')
+      supabase.from('vw_products_with_status').select('id, category, quantity')
     );
 
     const catMap = {};
     let low = 0, out = 0;
     for (const p of allRows) {
-      if (p.status === 'Low Stock') low++;
-      if (p.status === 'Out of Stock') out++;
+      const s = stockStatus(p.quantity, rules);
+      if (s === 'Low Stock') low++;
+      if (s === 'Out of Stock') out++;
       const c = p.category || 'General';
       catMap[c] = (catMap[c] || 0) + 1;
     }
@@ -61,7 +69,7 @@ router.get('/', async (req, res) => {
       price: p.price,
       expiry_date: p.expiry_date,
       pharmacy_id: p.pharmacy_id,
-      status: p.status, // already capitalised by the view
+      ...withStatus({ quantity: p.quantity, expiry_date: p.expiry_date }, rules),
     }));
 
     res.json({
@@ -133,7 +141,7 @@ router.post('/', async (req, res) => {
     };
     const { data, error } = await supabase.from('products').insert(row).select().single();
     if (error) throw error;
-    res.status(201).json(withStatus(data));
+    res.status(201).json(withStatus(data, await getStockRules()));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -150,7 +158,7 @@ router.put('/:id', async (req, res) => {
       .from('products').update(updates).eq('id', req.params.id).select().maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Product not found' });
-    res.json(withStatus(data));
+    res.json(withStatus(data, await getStockRules()));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
+import { clearStockRules } from '../lib/stockRules.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -87,6 +88,7 @@ router.put('/', async (req, res) => {
       .select()
       .single();
     if (error) throw error;
+    clearStockRules(); // new low-stock and expiry rules apply straight away
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });

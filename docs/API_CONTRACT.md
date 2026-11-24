@@ -15,7 +15,7 @@
 | `GET /me` | Your staff record and status (works before approval) | Logged in |
 | `POST /me/join` | Ask to join with the pharmacy join code | Logged in, no request yet |
 | `POST /me/register` | Ask to become a pharmacy admin | Logged in, no request yet |
-| `GET /products` | Products with stock status, plus search, filters and pages | Admin, till |
+| `GET /products` | Products with stock status and expiry flags (`expiring_soon`, `expired`), plus search, filters and pages of up to 100 | Admin, till |
 | `POST /products`, `PUT /products/:id`, `DELETE /products/:id` | Add, edit or delete a product | Admin |
 | `POST /pos/checkout` | Complete a sale: creates the order and payment, updates stock and records the cashier | Admin, till |
 | `GET /orders` | Orders. Till operators see only their own. | Admin, till |
@@ -33,5 +33,6 @@
 | `GET /staff` | Join code, your record and all staff | Admin |
 | `POST /staff/join-code` | Make a new join code | Admin |
 | `PATCH /staff/:id` | Approve, decline, change role, suspend or reactivate someone | Admin |
+| `GET /settings`, `PUT /settings` | Read or save the pharmacy profile and stock rules (`low_stock_threshold`, `expiry_warning_days`) | Admin |
 
 The till operator's list of allowed endpoints is in `backend/lib/auth.js` (`TILL_ALLOWED`).

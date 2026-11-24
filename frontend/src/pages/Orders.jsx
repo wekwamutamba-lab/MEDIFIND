@@ -9,6 +9,8 @@ import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
 import { useAccess } from '../lib/access';
+import ExportMenu from '../components/ExportMenu';
+import { fetchAllPages } from '../lib/exportFile';
 
 const EMPTY_FORM = { customerName: '', medicine: '', quantity: '1', total: '0', status: 'Pending', paymentStatus: 'Pending' };
 const STATUSES = ['Pending', 'Completed', 'Cancelled'];
@@ -87,6 +89,29 @@ export default function Orders() {
     return row.total ?? 0;
   }
 
+  // Export: every order matching the search and filter on screen, not just this page
+  const buildReport = async () => {
+    const rows = await fetchAllPages(getOrders, { search: query, status });
+    const cols = [
+      { label: 'Order ID', value: (r) => r.id ?? '', width: 10 },
+      { label: 'Customer', value: (r) => r.customer_name || '', width: 22 },
+      { label: 'Medicine', value: (r) => r.product_name || '', width: 24 },
+      { label: 'Qty', value: (r) => Number(r.quantity ?? 0) },
+      { label: 'Total ($)', value: (r) => Number(oTotal(r)), money: true },
+      { label: 'Status', value: (r) => r.order_status || 'Pending' },
+      { label: 'Payment', value: (r) => r.payment_status || 'Unpaid' },
+      { label: 'Date', value: (r) => (r.order_date || '').slice(0, 10) },
+      ...(isAdmin ? [{ label: 'Sold by', value: (r) => r.cashier_name || '', width: 18 }] : []),
+    ];
+    const filters = [status && `Status: ${status}`, query && `Search: "${query}"`].filter(Boolean).join(', ');
+    return {
+      title: isAdmin ? 'Orders' : 'My Sales',
+      subtitle: `${rows.length} orders${filters ? ` (${filters})` : ''}`,
+      fileBase: isAdmin ? 'medifind-orders' : 'medifind-my-sales',
+      sections: [{ columns: cols, rows }],
+    };
+  };
+
   const handleAction = (action, row) => {
     if (action === 'edit') {
       setEditOrder(row);
@@ -134,15 +159,18 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">{isAdmin ? 'Orders' : 'My Sales'}</h1>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
-        >
-          <Plus size={18} /> Add New Order
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportMenu buildReport={buildReport} />
+          <button
+            type="button"
+            onClick={openAdd}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
+          >
+            <Plus size={18} /> Add New Order
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

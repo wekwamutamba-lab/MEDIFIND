@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
 import { askGemini } from '../lib/gemini.js';
+import { getStockRules, expiryLimit } from '../lib/stockRules.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -15,18 +16,22 @@ router.post('/insights', async (req, res) => {
       supabase.from('products').select('id, name, quantity, expiry_date, category')
     );
 
-    const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-    const low = (data || []).filter((p) => p.quantity < 20);
-    const expiring = (data || []).filter((p) => p.expiry_date && p.expiry_date <= in30);
+    // "low" and "expiring" use the pharmacy's own rules from the Settings page
+    const rules = await getStockRules();
+    const until = expiryLimit(rules);
+    const low = (data || []).filter((p) => p.quantity < rules.lowStock);
+    const expiring = (data || []).filter((p) => p.expiry_date && p.expiry_date <= until);
+    // the fallback suggests topping each item back up to about 50 units (more if the low level is high)
+    const target = Math.max(50, Math.round(rules.lowStock * 2.5));
 
     const fallback = {
-      summary: `${low.length} products are low or out of stock and ${expiring.length} expire within 30 days. Restock the lowest items first and discount expiring stock.`,
+      summary: `${low.length} products are low or out of stock and ${expiring.length} expire within ${rules.expiryDays} days. Restock the lowest items first and discount expiring stock.`,
       restock: low
         .sort((a, b) => a.quantity - b.quantity)
         .slice(0, 6)
         .map((p) => ({
           product: p.name,
-          suggestedQty: Math.max(50 - p.quantity, 20),
+          suggestedQty: Math.max(target - p.quantity, rules.lowStock),
           reason: p.quantity === 0 ? 'Out of stock' : `Only ${p.quantity} units left`,
         })),
       expiring: expiring.slice(0, 6).map((p) => ({ product: p.name, expiry_date: p.expiry_date })),

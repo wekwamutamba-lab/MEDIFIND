@@ -9,6 +9,8 @@ import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
 import { useAccess } from '../lib/access';
+import ExportMenu from '../components/ExportMenu';
+import { fetchAllPages } from '../lib/exportFile';
 
 const EMPTY_FORM = { name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' };
 const PAGE_SIZE = 10;
@@ -71,11 +73,54 @@ export default function Products() {
     { key: 'category', label: 'Category', render: (row) => row.category || '—' },
     { key: 'price', label: 'Price', render: (row) => `$${Number(row.price || 0).toFixed(2)}` },
     { key: 'stock', label: 'Stock', render: (row) => row.quantity ?? row.stock ?? 0 },
-    { key: 'expiryDate', label: 'Expires', render: (row) => (row.expiry_date || row.expiryDate || '').slice(0, 10) || '—' },
+    {
+      key: 'expiryDate',
+      label: 'Expires',
+      render: (row) => {
+        const d = (row.expiry_date || row.expiryDate || '').slice(0, 10);
+        if (!d) return '—';
+        // the server marks these using the expiry warning set on the Settings page
+        const tag = row.expired ? 'Expired' : row.expiring_soon ? 'Expires soon' : '';
+        return (
+          <span className="whitespace-nowrap">
+            {d}
+            {tag && (
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${row.expired ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                {tag}
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status || 'In Stock'} /> },
     { key: 'actions', label: 'Actions' },
   ];
   const columns = isAdmin ? allColumns : allColumns.filter((c) => c.key !== 'actions');
+
+  // Export: every product matching the search and category on screen, not just this page
+  const buildReport = async () => {
+    const rows = await fetchAllPages(getProducts, { search: query, category });
+    const filters = [category && `Category: ${category}`, query && `Search: "${query}"`].filter(Boolean).join(', ');
+    return {
+      title: 'Inventory',
+      subtitle: `${rows.length} products${filters ? ` (${filters})` : ''}`,
+      fileBase: 'medifind-inventory',
+      sections: [{
+        columns: [
+          { label: 'SKU', value: (r) => r.sku || r.id || '', width: 10 },
+          { label: 'Medicine', value: (r) => r.name || '', width: 28 },
+          { label: 'Category', value: (r) => r.category || '', width: 16 },
+          { label: 'Price ($)', value: (r) => Number(r.price || 0), money: true },
+          { label: 'Stock', value: (r) => Number(r.quantity ?? 0) },
+          { label: 'Expires', value: (r) => (r.expiry_date || '').slice(0, 10) },
+          { label: 'Status', value: (r) => r.status || 'In Stock', width: 14 },
+          { label: 'Expiry', value: (r) => (r.expired ? 'Expired' : r.expiring_soon ? 'Expires soon' : '') , width: 14 },
+        ],
+        rows,
+      }],
+    };
+  };
 
   const handleAction = async (action, row) => {
     if (action === 'edit') {
@@ -149,17 +194,20 @@ export default function Products() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={openAdd}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
-          >
-            <Plus size={18} /> Add New Product
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportMenu buildReport={buildReport} />
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={openAdd}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime text-sidebar text-sm font-semibold hover:bg-[#d4ec5f] transition"
+            >
+              <Plus size={18} /> Add New Product
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

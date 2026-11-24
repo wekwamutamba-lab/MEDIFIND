@@ -16,6 +16,7 @@ import posRouter from './routes/pos.js';
 import aiRouter from './routes/ai.js';
 import meRouter from './routes/me.js';
 import staffRouter from './routes/staff.js';
+import settingsRouter from './routes/settings.js';
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/suppliers', suppliersRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/pos', posRouter);
 app.use('/api/staff', staffRouter);
+app.use('/api/settings', settingsRouter); // admin only (not in TILL_ALLOWED)
 app.use('/api/stats', statsRouter);
 app.use('/api', statsRouter); // alias: /api/overview and /api/sales
 app.use('/api', sourcingRouter); // POST /api/find, /api/restock

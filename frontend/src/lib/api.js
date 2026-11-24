@@ -135,3 +135,7 @@ export const getStaff = () => request('/staff');
 export const updateStaff = (id, body) =>
   request(`/staff/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const newJoinCode = () => request('/staff/join-code', { method: 'POST' });
+
+// ---------- Settings (admin) ----------
+export const getSettings = () => request('/settings');
+export const updateSettings = (body) => request('/settings', { method: 'PUT', body: JSON.stringify(body) });

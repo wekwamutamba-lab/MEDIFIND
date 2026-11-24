@@ -6,6 +6,8 @@ import StatusBadge from '../components/StatusBadge';
 import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
+import ExportMenu from '../components/ExportMenu';
+import { fetchAllPages } from '../lib/exportFile';
 
 const PAGE_SIZE = 10;
 const EMPTY_STATS = { completed: 0, pending: 0, failed: 0, collected: 0 };
@@ -49,6 +51,28 @@ export default function Payments() {
     { key: 'date', label: 'Date', render: (row) => (row.payment_date || '').slice(0, 10) || '—' },
   ];
 
+  // Export: every payment matching the search, not just this page
+  const buildReport = async () => {
+    const rows = await fetchAllPages(getPayments, { search: query });
+    return {
+      title: 'Payments',
+      subtitle: `${rows.length} payments${query ? ` (Search: "${query}")` : ''}`,
+      fileBase: 'medifind-payments',
+      sections: [{
+        columns: [
+          { label: 'Payment ID', value: (r) => r.id ?? '', width: 12 },
+          { label: 'Order ID', value: (r) => r.order_id ?? '', width: 10 },
+          { label: 'Customer', value: (r) => r.customer_name || '', width: 24 },
+          { label: 'Amount ($)', value: (r) => Number(r.amount || 0), money: true },
+          { label: 'Method', value: (r) => r.method || '' },
+          { label: 'Status', value: (r) => r.status || 'Pending' },
+          { label: 'Date', value: (r) => (r.payment_date || '').slice(0, 10) },
+        ],
+        rows,
+      }],
+    };
+  };
+
   // Card figures cover every payment (from the server), not only this page.
   // Only completed payments count as money collected.
   const totalPayments = (stats?.completed ?? 0) + (stats?.pending ?? 0) + (stats?.failed ?? 0);
@@ -56,9 +80,12 @@ export default function Payments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-        <div className="text-gray-500 text-sm">Track customer payments.</div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
+          <div className="text-gray-500 text-sm">Track customer payments.</div>
+        </div>
+        <ExportMenu buildReport={buildReport} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

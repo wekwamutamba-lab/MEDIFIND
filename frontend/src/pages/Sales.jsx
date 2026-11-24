@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Banknote, TrendingUp, Wallet, ShoppingBag } from 'lucide-react';
 import { getSales } from '../lib/api';
+import ExportMenu from '../components/ExportMenu';
 
 const money = (n) =>
   `$${Number(n || 0).toLocaleString(undefined, {
@@ -97,6 +98,49 @@ export default function Sales() {
   const maxProd = Math.max(1, ...products.map((p) => Number(p.revenue) || 0));
   const hasTimeData = (data?.ordersByTime ?? []).length > 0;
 
+  // Export: the summary figures, revenue by month and top products
+  const buildReport = async () => {
+    const d = data ?? (await getSales());
+    const money2 = (v) => Number(v || 0);
+    return {
+      title: 'Sales report',
+      subtitle: 'Cancelled orders are left out. Profit is an estimate at a 30% margin.',
+      fileBase: 'medifind-sales',
+      sections: [
+        {
+          title: 'Summary',
+          columns: [
+            { label: 'Measure', value: (r) => r[0], width: 24 },
+            { label: 'Amount ($)', value: (r) => r[1], money: true, width: 14 },
+          ],
+          rows: [
+            ['Total revenue', money2(d.totalRevenue)],
+            ['Estimated profit (30%)', money2(d.totalProfit)],
+            ['Estimated cost', money2(d.totalCost)],
+            ['Average order value', money2(d.avgOrderValue)],
+          ],
+        },
+        {
+          title: 'Revenue by month',
+          columns: [
+            { label: 'Month', value: (m) => `${m.month} ${m.year ?? ''}`.trim(), width: 14 },
+            { label: 'Revenue ($)', value: (m) => money2(m.value), money: true, width: 14 },
+          ],
+          rows: d.revenueByMonth ?? [],
+        },
+        {
+          title: 'Top products',
+          columns: [
+            { label: 'Product', value: (p) => p.name || '', width: 28 },
+            { label: 'Category', value: (p) => p.category || '', width: 16 },
+            { label: 'Revenue ($)', value: (p) => money2(p.revenue), money: true, width: 14 },
+          ],
+          rows: d.topProducts ?? [],
+        },
+      ],
+    };
+  };
+
   // Busiest slot, for a plain-English takeaway
   let busiest = null;
   DAYS.forEach((d) =>
@@ -107,9 +151,12 @@ export default function Sales() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
-        <p className="text-sm text-gray-500">Revenue, profit and when your customers buy</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
+          <p className="text-sm text-gray-500">Revenue, profit and when your customers buy</p>
+        </div>
+        <ExportMenu buildReport={buildReport} />
       </div>
 
       {error && (

@@ -5,6 +5,8 @@ import DataTable from '../components/DataTable';
 import SearchInput from '../components/SearchInput';
 import ListBody from '../components/ListBody';
 import useDebounced from '../lib/useDebounced';
+import ExportMenu from '../components/ExportMenu';
+import { fetchAllPages } from '../lib/exportFile';
 
 const PAGE_SIZE = 10;
 const EMPTY_STATS = { total: 0, totalOrders: 0, totalSpent: 0 };
@@ -46,6 +48,27 @@ export default function Customers() {
     { key: 'lastOrder', label: 'Last Order', render: (row) => (row.last_order_date || row.lastOrder || '').slice(0, 10) || '—' },
   ];
 
+  // Export: every customer matching the search, not just this page
+  const buildReport = async () => {
+    const rows = await fetchAllPages(getCustomers, { search: query });
+    return {
+      title: 'Customers',
+      subtitle: `${rows.length} customers${query ? ` (Search: "${query}")` : ''}`,
+      fileBase: 'medifind-customers',
+      sections: [{
+        columns: [
+          { label: 'Name', value: (r) => r.name || '', width: 24 },
+          { label: 'Email', value: (r) => r.email || '', width: 28 },
+          { label: 'Phone', value: (r) => r.phone || '', width: 16 },
+          { label: 'Orders', value: (r) => Number(r.total_orders ?? 0) },
+          { label: 'Spent ($)', value: (r) => Number(r.total_spent || 0), money: true },
+          { label: 'Last order', value: (r) => (r.last_order_date || '').slice(0, 10) },
+        ],
+        rows,
+      }],
+    };
+  };
+
   // Card figures cover every customer (from the server), not only this page
   const totalSpent = Number(stats?.totalSpent ?? 0);
   const totalOrders = Number(stats?.totalOrders ?? 0);
@@ -53,9 +76,12 @@ export default function Customers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-        <div className="text-gray-500 text-sm">{stats?.total ?? 0} customers on file</div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+          <div className="text-gray-500 text-sm">{stats?.total ?? 0} customers on file</div>
+        </div>
+        <ExportMenu buildReport={buildReport} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -14,7 +14,7 @@ MediFind uses the **Google Gemini API** through Google's official Node.js librar
 
 Pill tells the pharmacist what to reorder and what is about to expire.
 
-1. The backend selects the products that are low or out of stock (under 20 units) and the products that expire within 30 days.
+1. The backend selects the products that are low or out of stock and the products close to expiry, using the low-stock level and expiry warning set on the Settings page (20 units and 30 days by default).
 2. It sends Gemini the **name, category, quantity and expiry date** of up to 15 items in each group. Nothing else is sent.
 3. Gemini returns:
    ```json
@@ -66,7 +66,6 @@ Each failure is logged on the server.
 - **Unusual names:** the AI can misread a misspelled or unusual medicine name, or a local brand name. This is why the screen shows what it understood, so the pharmacist can check it and search again.
 - **Name matching only:** search matches the medicine name, not the active ingredient, so a brand name and its generic are not linked yet.
 - **Supplier data:** supplier prices and stock come from the catalogue held in MediFind, not from live supplier systems. The app shows a disclaimer saying they are indicative.
-- **Fixed thresholds:** Pill's "low stock" (under 20) and "expiring" (30 days) thresholds are fixed in the AI route for now.
 - **Free tier:** the free Gemini tier has rate limits, and Google uses free-tier data to improve its products. A live deployment with real pharmacies should use the paid tier. See [ETHICS.md](ETHICS.md).
 - **Model changes:** model names change over time, which is why the model is a setting.
 - **No medical advice:** the AI never gives medical advice, diagnoses or dosage guidance, and both prompts forbid it.

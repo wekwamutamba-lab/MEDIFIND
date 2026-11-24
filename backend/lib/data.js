@@ -66,5 +66,5 @@ export function byMonth(orders, now = new Date()) {
     const b = buckets.find((x) => x.key === `${d.year}-${d.month}`);
     if (b) b.value += o.total;
   }
-  return buckets.map(({ month, value }) => ({ month, value: Math.round(value * 100) / 100 }));
+  return buckets.map(({ key, month, value }) => ({ month, year: Number(key.split('-')[0]), value: Math.round(value * 100) / 100 }));
 }
