@@ -140,6 +140,9 @@ function Slides() {
             key={s.img}
             src={s.img}
             alt=""
+            // lazy: phones hide this panel, so they skip downloading the photos
+            loading="lazy"
+            decoding="async"
             onError={() => setFailed((f) => ({ ...f, [n]: true }))}
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
               n === i ? 'opacity-100' : 'opacity-0'
