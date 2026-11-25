@@ -18,7 +18,7 @@ export default function AccessGate({ me, onChange, onLogout }) {
     try {
       const next = await getMe();
       onChange(next);
-      if (next?.staff?.status === status) setNote('No change yet. Your admin has not approved you so far.');
+      if (next?.staff?.status === status) setNote(status === 'rejected' ? 'No change. Your request is still declined.' : 'No change yet. Your admin has not approved you so far.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -100,7 +100,7 @@ export default function AccessGate({ me, onChange, onLogout }) {
           </form>
         )}
 
-        {status === 'pending' && (
+        {(status === 'pending' || status === 'rejected') && (
           <button
             type="button"
             onClick={refresh}

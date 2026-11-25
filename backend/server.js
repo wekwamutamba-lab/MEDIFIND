@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { requireAuth, requireActive, enforceRole } from './lib/auth.js';
 import { createAiLimiter } from './lib/rateLimit.js';
+import { sendError } from './lib/errors.js';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
 import customersRouter from './routes/customers.js';
@@ -59,10 +60,8 @@ app.use('/api', aiRouter); // POST /api/insights
 
 app.use((req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` }));
 
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: err.message || 'Internal Server Error' });
-});
+// Anything a route did not handle itself, e.g. bad JSON in a request body
+app.use((err, req, res, next) => sendError(res, err));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`MediFind API running on http://localhost:${PORT}`));

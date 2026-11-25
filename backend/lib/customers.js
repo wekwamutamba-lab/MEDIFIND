@@ -2,7 +2,9 @@ import { selectAll } from './selectAll.js';
 
 // Which customer a New Sale belongs to.
 //
-// 1. A customer picked from the suggestions (customer_id) is used as is.
+// 1. A customer picked from the suggestions (customer_id) is that person. A phone
+//    number or email typed for them is saved on them, unless it is already saved
+//    for someone else (then the till operator is asked, as in 2).
 // 2. A phone number or email already saved for someone is that person, but only if
 //    the name typed is theirs too (or no name was typed). If the name is different,
 //    nothing is guessed: the till operator is asked which they meant (409 CUSTOMER_CONFLICT).
@@ -38,17 +40,42 @@ const pub = (c) => ({
 // or email should be saved on them), or { create: row } for a new one. Nothing is
 // written here, so a sale that fails later leaves no stray customer.
 export async function resolveCustomer(pharmacy, { customerId, name, phone, email }) {
+  const p = phoneDigits(phone);
+  const e = norm(email);
+  const clash = (c, what) =>
+    httpError(409, `That ${what} is already saved for ${c.name}.`, {
+      code: 'CUSTOMER_CONFLICT',
+      field: what === 'email' ? 'email' : 'phone',
+      customer: pub(c),
+    });
+
   if (customerId) {
     const { data, error } = await pharmacy.select('customers', '*').eq('id', customerId).maybeSingle();
     if (error) throw error;
     if (!data) throw httpError(404, 'That customer is no longer in your customer list. Pick them again.');
-    return { customer: data };
+
+    // a new or changed phone number or email typed for them (an empty box keeps what is saved)
+    const newPhone = p && p !== phoneDigits(data.phone);
+    const newEmail = e && !isPlaceholderEmail(e) && e !== norm(data.email);
+    if (!newPhone && !newEmail) return { customer: data };
+
+    const others = (await selectAll(() => pharmacy.select('customers', '*'))).filter((x) => x.id !== data.id);
+    const update = {};
+    if (newPhone) {
+      const owner = p.length >= 7 && others.find((x) => phoneDigits(x.phone) === p);
+      if (owner) throw clash(owner, 'phone number');
+      update.phone = phone;
+    }
+    if (newEmail) {
+      const owner = others.find((x) => norm(x.email) === e);
+      if (owner) throw clash(owner, 'email');
+      update.email = e;
+    }
+    return { customer: data, update };
   }
 
   const all = await selectAll(() => pharmacy.select('customers', '*'));
   const typedName = Boolean(name) && norm(name) !== norm(WALK_IN);
-  const p = phoneDigits(phone);
-  const e = norm(email);
 
   let match = null;
   if (p.length >= 7) {
@@ -61,11 +88,7 @@ export async function resolveCustomer(pharmacy, { customerId, name, phone, email
   }
   if (match) {
     if (!typedName || norm(match.c.name) === norm(name)) return { customer: match.c };
-    throw httpError(409, `That ${match.what} is already saved for ${match.c.name}.`, {
-      code: 'CUSTOMER_CONFLICT',
-      field: match.what === 'email' ? 'email' : 'phone',
-      customer: pub(match.c),
-    });
+    throw clash(match.c, match.what);
   }
 
   const finalName = typedName ? name : WALK_IN;

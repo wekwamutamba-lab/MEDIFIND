@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id     UUID REFERENCES customers(id) ON DELETE SET NULL,
   product_id      UUID REFERENCES products(id) ON DELETE SET NULL,
+  product_name    TEXT,                 -- the medicine's name, kept if the product is deleted
   quantity        INTEGER DEFAULT 1,
   total_price     NUMERIC,              -- old column, not used by the app
   status          TEXT DEFAULT 'Pending',

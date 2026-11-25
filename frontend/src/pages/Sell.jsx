@@ -479,7 +479,7 @@ export default function Sell() {
                     >
                       <div className="text-sm font-semibold text-gray-800">{c.name}</div>
                       <div className="text-xs text-gray-500">
-                        {c.phone || c.email} · {c.total_orders} orders
+                        {c.phone || c.email || 'No phone or email saved'} · {c.total_orders} orders
                       </div>
                     </button>
                   ))}

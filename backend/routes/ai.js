@@ -4,6 +4,7 @@ import { askGemini } from '../lib/gemini.js';
 import { loadOrders } from '../lib/data.js';
 import { getStockRules, expiryLimit, expiryFlags } from '../lib/stockRules.js';
 import { forecastStock } from '../lib/forecast.js';
+import { sendError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -101,7 +102,7 @@ router.post('/insights', async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

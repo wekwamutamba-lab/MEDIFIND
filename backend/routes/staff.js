@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getJoinCode, setNewJoinCode } from '../lib/joinCode.js';
+import { sendError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get('/', async (req, res) => {
       })),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -43,7 +44,7 @@ router.post('/join-code', async (req, res) => {
   try {
     res.json({ join_code: await setNewJoinCode(req.pharmacy.id) });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -95,7 +96,7 @@ router.patch('/:id', async (req, res) => {
     if (error) throw error;
     res.json({ id: data.user_id, role: data.role, status: data.status });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

@@ -1,5 +1,6 @@
 ﻿import { Router } from 'express';
 import { selectAll } from '../lib/selectAll.js';
+import { sendError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.get('/', async (req, res) => {
     const data = rows.slice((page - 1) * limit, page * limit);
     res.json({ data, total, stats });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

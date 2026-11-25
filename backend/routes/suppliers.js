@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { selectAll } from '../lib/selectAll.js';
 import { canSeeSupplier, ownsSupplier } from '../lib/tenant.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -67,7 +68,7 @@ router.get('/', async (req, res) => {
     }
     res.json({ data: rows, total: rows.length });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -82,7 +83,7 @@ router.post('/', async (req, res) => {
     if (error) throw error;
     res.status(201).json(shape(data, req.pharmacy.id, 0));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -95,7 +96,7 @@ router.put('/:id', async (req, res) => {
     if (error) throw error;
     res.json(shape(data, req.pharmacy.id, undefined));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -107,7 +108,7 @@ router.delete('/:id', async (req, res) => {
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -120,7 +121,7 @@ router.get('/:id/products', async (req, res) => {
     if (error) throw error;
     res.json({ data: data || [] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -145,7 +146,7 @@ router.post('/:id/products', async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -158,7 +159,7 @@ router.delete('/:id/products/:pid', async (req, res) => {
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

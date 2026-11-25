@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { loadOrders, normOrderStatus, normPaymentStatus } from '../lib/data.js';
+import { loadOrders, insertOrder, normOrderStatus, normPaymentStatus } from '../lib/data.js';
 import { adjustStock, restoreStock, exactIlike } from '../lib/stock.js';
 import { isAdmin, staffName } from '../lib/auth.js';
+import { sendError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.get('/', async (req, res) => {
     }
     res.json({ data: rows.slice((page - 1) * limit, page * limit), total: rows.length, stats });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -99,19 +100,18 @@ router.post('/', async (req, res) => {
 
       const total = Math.round(quantity * Number(product.price || 0) * 100) / 100;
       const now = new Date().toISOString();
-      const { data: order, error: oe } = await req.pharmacy
-        .insert('orders', {
-          customer_id: customerId,
-          product_id: product.id,
-          quantity,
-          total,
-          order_date: now,
-          status: 'Pending',
-          payment_status: 'Pending',
-          cashier_id: req.user.id,
-          cashier_name: staffName(req),
-        })
-        .select('id').single();
+      const { data: order, error: oe } = await insertOrder(req.pharmacy, {
+        customer_id: customerId,
+        product_id: product.id,
+        product_name: product.name,
+        quantity,
+        total,
+        order_date: now,
+        status: 'Pending',
+        payment_status: 'Pending',
+        cashier_id: req.user.id,
+        cashier_name: staffName(req),
+      });
       if (oe) throw oe;
       orderId = order.id;
 
@@ -132,7 +132,7 @@ router.post('/', async (req, res) => {
     const all = await loadOrders(req.pharmacy);
     res.status(201).json(all.find((o) => o.id === orderId));
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -215,7 +215,7 @@ router.patch('/:id', async (req, res) => {
     const all = await loadOrders(req.pharmacy);
     res.json(all.find((o) => o.id === row.id));
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

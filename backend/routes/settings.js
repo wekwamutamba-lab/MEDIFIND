@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { clearStockRules } from '../lib/stockRules.js';
+import { httpError } from '../lib/stock.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -28,7 +30,7 @@ const toApi = (r) => {
 async function load(pharmacyId) {
   const { data, error } = await supabase.from('pharmacies').select(COLS).eq('id', pharmacyId).limit(1);
   if (error) throw error;
-  if (!data?.length) throw new Error('Your pharmacy was not found');
+  if (!data?.length) throw httpError(404, 'Your pharmacy was not found');
   return data[0];
 }
 
@@ -37,7 +39,7 @@ router.get('/', async (req, res) => {
   try {
     res.json(toApi(await load(req.pharmacy.id)));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -99,7 +101,7 @@ router.put('/', async (req, res) => {
     clearStockRules(req.pharmacy.id); // new low-stock and expiry rules apply straight away
     res.json(toApi(data));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

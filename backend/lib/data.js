@@ -35,7 +35,8 @@ export async function loadOrders(pharmacy) {
     customer_id: r.customer_id,
     product_id: r.product_id,
     customer_name: cMap.get(r.customer_id)?.name || 'Unknown',
-    product_name: pMap.get(r.product_id)?.name || 'Unknown',
+    // the product's current name; if it was deleted, the name saved with the sale
+    product_name: pMap.get(r.product_id)?.name || r.product_name || 'Unknown',
     category: pMap.get(r.product_id)?.category || 'General',
     quantity: r.quantity,
     total: Number(r.total) || 0,
@@ -45,6 +46,22 @@ export async function loadOrders(pharmacy) {
     cashier_id: r.cashier_id || null,
     cashier_name: r.cashier_name || null,
   }));
+}
+
+// Saves one order row and returns { data: { id }, error }.
+// row.product_name keeps the medicine's name with the sale, so its history still
+// shows it after the product is deleted (column added by migration_order_names.sql).
+// If that SQL has not been run yet the column is missing: the sale is then saved
+// without the name instead of failing at the till.
+const missingColumn = (e, col) =>
+  Boolean(e) && (e.code === 'PGRST204' || e.code === '42703') && String(e.message || '').includes(col);
+
+export async function insertOrder(pharmacy, row) {
+  const first = await pharmacy.insert('orders', row).select('id').single();
+  if (!missingColumn(first.error, 'product_name')) return first;
+  console.warn('orders.product_name is missing: run backend/supabase/migration_order_names.sql');
+  const { product_name, ...rest } = row;
+  return pharmacy.insert('orders', rest).select('id').single();
 }
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

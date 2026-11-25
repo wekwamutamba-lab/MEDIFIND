@@ -6,6 +6,8 @@ import { selectAll } from '../lib/selectAll.js';
 import { askGemini } from '../lib/gemini.js';
 import { readSaleNote, MAX_NOTE } from '../lib/saleNote.js';
 import { resolveCustomer, WALK_IN } from '../lib/customers.js';
+import { insertOrder } from '../lib/data.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -27,7 +29,7 @@ router.post('/note', async (req, res) => {
     const ask = process.env.GEMINI_API_KEY ? askGemini : undefined;
     res.json(await readSaleNote(note, products, { ask }));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -113,20 +115,18 @@ router.post('/checkout', async (req, res) => {
         const price = Number(p.price) || 0;
         const total = round2(price * q);
 
-        const { data: order, error: oe } = await req.pharmacy
-          .insert('orders', {
-            customer_id: customer.id,
-            product_id: id,
-            quantity: q,
-            total,
-            order_date: now,
-            status: 'Completed',
-            payment_status: 'Paid',
-            cashier_id: req.user.id,
-            cashier_name: staffName(req),
-          })
-          .select('id')
-          .single();
+        const { data: order, error: oe } = await insertOrder(req.pharmacy, {
+          customer_id: customer.id,
+          product_id: id,
+          product_name: p.name,
+          quantity: q,
+          total,
+          order_date: now,
+          status: 'Completed',
+          payment_status: 'Paid',
+          cashier_id: req.user.id,
+          cashier_name: staffName(req),
+        });
         if (oe) throw oe;
         orderIds.push(order.id);
 
@@ -149,6 +149,11 @@ router.post('/checkout', async (req, res) => {
       }
       for (const [id, q] of taken) await restoreStock(id, q, pharmacyId);
       if (created && customer?.id) await req.pharmacy.delete('customers').eq('id', customer.id);
+      // put back the phone number or email the sale had saved on an existing customer
+      if (!created && who.update && who.customer?.id) {
+        const before = Object.fromEntries(Object.keys(who.update).map((k) => [k, who.customer[k] ?? null]));
+        await req.pharmacy.update('customers', before).eq('id', who.customer.id);
+      }
       throw err;
     }
     const firstOrderId = String(orderIds[0] || '');
@@ -172,7 +177,7 @@ router.post('/checkout', async (req, res) => {
       total: round2(lines.reduce((s, l) => s + l.total, 0)),
     });
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message, ...(err.extra || {}) });
+    sendError(res, err);
   }
 });
 

@@ -1,4 +1,5 @@
 import * as sb from './supabase.js';
+import { TIME_ZONE } from './time.js';
 
 const supabase = sb.supabase || sb.default;
 
@@ -46,7 +47,10 @@ export function stockStatus(quantity, rules) {
   return 'In Stock';
 }
 
-const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+// YYYY-MM-DD in the pharmacy's time zone, so a product counts as expired from
+// midnight in Harare, not from midnight UTC (02:00 in Harare)
+const localDay = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+const isoDay = (ms) => localDay.format(new Date(ms));
 
 // { expired, expiring_soon } for a product's expiry date (YYYY-MM-DD)
 export function expiryFlags(expiryDate, rules, now = Date.now()) {

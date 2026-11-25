@@ -5,6 +5,7 @@ import { selectAll } from '../lib/selectAll.js';
 import { getStockRules, expiryFlags } from '../lib/stockRules.js';
 import { forecastStock } from '../lib/forecast.js';
 import { weeklySummary } from '../lib/weekly.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -51,7 +52,7 @@ router.get('/weekly', async (req, res) => {
     // where the Send buttons send it: the pharmacy's own WhatsApp and email (Settings)
     res.json({ ...summary, send_to: { whatsapp: pharmacy.whatsapp || '', email: pharmacy.email || '' } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { selectAll } from '../lib/selectAll.js';
 import { getStockRules, stockStatus, expiryFlags } from '../lib/stockRules.js';
+import { sendError } from '../lib/errors.js';
 const router = Router();
 
 // normalise DB status to contract capitalised values
@@ -77,7 +78,7 @@ router.get('/', async (req, res) => {
       categories: Object.entries(catMap).map(([name, n]) => ({ name, count: n })),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -133,7 +134,7 @@ router.post('/', async (req, res) => {
     if (error) throw error;
     res.status(201).json(withStatus(data, await getStockRules(req.pharmacy.id)));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -150,7 +151,7 @@ router.put('/:id', async (req, res) => {
     if (!data) return res.status(404).json({ error: 'Product not found' });
     res.json(withStatus(data, await getStockRules(req.pharmacy.id)));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -161,7 +162,7 @@ router.delete('/:id', async (req, res) => {
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

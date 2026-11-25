@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { isPlatformOwner } from '../lib/tenant.js';
 import { setNewJoinCode } from '../lib/joinCode.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -16,7 +17,7 @@ router.use(async (req, res, next) => {
     if (await isPlatformOwner(req.user.id)) return next();
     return res.status(403).json({ error: 'Only MediFind platform owners can do that', code: 'OWNER_ONLY' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return sendError(res, err);
   }
 });
 
@@ -45,21 +46,23 @@ router.get('/registrations', async (req, res) => {
     rows.sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1));
     res.json({ data: rows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
-async function waiting(id) {
-  const { data, error } = await registrations().eq('user_id', id).eq('status', 'pending').maybeSingle();
+// A registration in one of these states (default: still waiting), or null
+async function registration(id, statuses = ['pending']) {
+  const { data, error } = await registrations().eq('user_id', id).in('status', statuses).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 // POST /api/platform/registrations/:id/approve
 // Creates the pharmacy from the registration and makes the person its first admin.
+// A declined registration can be approved too, so a decline made by mistake can be undone.
 router.post('/registrations/:id/approve', async (req, res) => {
   try {
-    const reg = await waiting(req.params.id);
+    const reg = await registration(req.params.id, ['pending', 'rejected']);
     if (!reg) return res.status(404).json({ error: 'That registration is not waiting any more' });
 
     const { data: ph, error: pe } = await supabase
@@ -77,12 +80,12 @@ router.post('/registrations/:id/approve', async (req, res) => {
       .single();
     if (pe) throw pe;
 
-    // only if it is still waiting and unlinked, so two clicks cannot make two pharmacies own it
+    // only if nobody handled it meanwhile and it is unlinked, so two clicks cannot make two pharmacies own it
     const { data: done, error: ue } = await supabase
       .from('staff')
       .update({ pharmacy_id: ph.id, role: 'admin', status: 'active', decided_by: req.user.id, decided_at: new Date().toISOString() })
       .eq('user_id', reg.user_id)
-      .eq('status', 'pending')
+      .eq('status', reg.status)
       .is('pharmacy_id', null)
       .select('user_id');
     if (ue || !done?.length) {
@@ -93,14 +96,14 @@ router.post('/registrations/:id/approve', async (req, res) => {
     await setNewJoinCode(ph.id);
     res.json({ id: reg.user_id, status: 'active', pharmacy: ph });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
 // POST /api/platform/registrations/:id/decline
 router.post('/registrations/:id/decline', async (req, res) => {
   try {
-    const reg = await waiting(req.params.id);
+    const reg = await registration(req.params.id);
     if (!reg) return res.status(404).json({ error: 'That registration is not waiting any more' });
     const { error } = await supabase
       .from('staff')
@@ -111,7 +114,7 @@ router.post('/registrations/:id/decline', async (req, res) => {
     if (error) throw error;
     res.json({ id: reg.user_id, status: 'rejected' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

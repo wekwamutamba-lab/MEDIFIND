@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { loadOrders, byMonth } from '../lib/data.js';
 import { getStockRules } from '../lib/stockRules.js';
 import { localParts } from '../lib/time.js';
+import { sendError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.get('/overview', async (req, res) => {
       latestOrders: orders.slice(0, 5),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -94,7 +95,7 @@ router.get('/sales', async (req, res) => {
       topProducts,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

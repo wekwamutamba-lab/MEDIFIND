@@ -4,6 +4,7 @@ import { adjustStock, exactIlike } from '../lib/stock.js';
 import { selectAll } from '../lib/selectAll.js';
 import { askGemini } from '../lib/gemini.js';
 import { canSeeSupplier } from '../lib/tenant.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -114,7 +115,7 @@ router.post('/find', async (req, res) => {
 
     res.json({ parsed, results: results.slice(0, 10), disclaimer: DISCLAIMER });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -149,7 +150,7 @@ router.post('/restock', async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -173,7 +174,7 @@ router.get('/restock', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -225,7 +226,7 @@ router.patch('/restock/:id/receive', async (req, res) => {
     }
     res.json(claimed[0]);
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

@@ -336,7 +336,7 @@ export default function Products() {
 
       <Modal open={delOpen && !!delId} onClose={() => setDelOpen(false)} title="Delete Product">
         {saveError && <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-4 text-sm text-red-700">{saveError}</div>}
-        <p className="text-sm text-gray-700 mb-6">Are you sure you want to delete this product? This cannot be undone.</p>
+        <p className="text-sm text-gray-700 mb-6">Are you sure you want to delete this product? This cannot be undone. Its past sales stay in your records under its name.</p>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={() => setDelOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancel</button>
           <button type="button" onClick={handleDelete} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 font-semibold hover:bg-red-200">Delete</button>

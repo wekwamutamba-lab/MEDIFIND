@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as sb from '../lib/supabase.js';
 import { pharmacyForJoinCode } from '../lib/joinCode.js';
 import { isPlatformOwner } from '../lib/tenant.js';
+import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
@@ -90,7 +91,7 @@ router.get('/', async (req, res) => {
     }
     res.json(await me(req));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -116,7 +117,7 @@ router.post('/join', async (req, res) => {
     await createRequest(req, 'till', req.body || {}, pharmacyId);
     res.status(201).json(await me(req));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -131,7 +132,7 @@ router.post('/register', async (req, res) => {
     await createRequest(req, 'admin', req.body);
     res.status(201).json(await me(req));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 

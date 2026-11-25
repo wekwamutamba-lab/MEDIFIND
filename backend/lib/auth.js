@@ -28,7 +28,8 @@ export async function requireAuth(req, res, next) {
     if (se) throw se;
     req.staff = rows?.[0] || null;
   } catch (err) {
-    return res.status(500).json({ error: `Could not check your access: ${err.message}` });
+    console.error('Could not check access:', err);
+    return res.status(500).json({ error: 'Could not check your access. Please try again.' });
   }
   next();
 }

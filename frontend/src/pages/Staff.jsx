@@ -102,8 +102,16 @@ function Registrations() {
       {declined.length > 0 && (
         <details className="text-xs text-gray-500">
           <summary className="cursor-pointer">Declined ({declined.length})</summary>
-          <ul className="mt-2 space-y-1">
-            {declined.map((r) => <li key={r.id}>{r.pharmacy_name || '—'} · {r.email}</li>)}
+          <ul className="mt-2 space-y-1.5">
+            {declined.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-2">
+                <span>{r.pharmacy_name || '—'} · <span className="break-all">{r.email}</span></span>
+                {/* undo a decline made by mistake */}
+                <button type="button" disabled={busy === r.id} onClick={() => decide(r, 'approve')} className={`${btn} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`}>
+                  <Check size={12} /> Approve after all
+                </button>
+              </li>
+            ))}
           </ul>
         </details>
       )}

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { loadOrders } from '../lib/data.js';
 import { selectAll } from '../lib/selectAll.js';
-import { phoneDigits } from '../lib/customers.js';
+import { phoneDigits, isPlaceholderEmail } from '../lib/customers.js';
+import { sendError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -32,7 +33,8 @@ router.get('/', async (req, res) => {
       return {
         id: x.id,
         name: x.name,
-        email: x.email || '',
+        // customers saved without an email get a made-up one (…@walkin.medifind): never show it
+        email: isPlaceholderEmail(x.email) ? '' : x.email || '',
         phone: x.phone || '',
         total_orders: a.n,
         total_spent: Math.round(a.spent * 100) / 100,
@@ -64,7 +66,7 @@ router.get('/', async (req, res) => {
     }
     res.json({ data: rows.slice((page - 1) * limit, page * limit), total: rows.length, stats });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
