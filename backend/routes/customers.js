@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { loadOrders } from '../lib/data.js';
 import { selectAll } from '../lib/selectAll.js';
+import { phoneDigits } from '../lib/customers.js';
 
 const router = Router();
 
@@ -52,8 +53,13 @@ router.get('/', async (req, res) => {
 
     let rows = all;
     if (search) {
+      // a phone number matches by its digits, however it was typed
+      const digits = phoneDigits(search).replace(/^263/, '');
       rows = rows.filter(
-        (x) => x.name.toLowerCase().includes(search) || x.email.toLowerCase().includes(search)
+        (x) =>
+          x.name.toLowerCase().includes(search) ||
+          x.email.toLowerCase().includes(search) ||
+          (digits.length >= 4 && phoneDigits(x.phone).includes(digits))
       );
     }
     res.json({ data: rows.slice((page - 1) * limit, page * limit), total: rows.length, stats });

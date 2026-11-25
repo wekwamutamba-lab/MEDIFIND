@@ -12,16 +12,12 @@ MediFind uses the **Google Gemini API** through Google's official Node.js librar
 
 ### 1. Pill, the stock assistant (`POST /api/insights`)
 
-Pill tells the pharmacist what to reorder and what is about to expire.
+Pill tells the pharmacist what will run out first, how much to order, and what is about to expire.
 
-1. The backend selects the products that are low or out of stock and the products close to expiry, using the low-stock level and expiry warning set on the Settings page (20 units and 30 days by default).
-2. It sends Gemini the **name, category, quantity and expiry date** of up to 15 items in each group. Nothing else is sent.
-3. Gemini returns:
-   ```json
-   { "summary": "...", "restock": [{ "product": "...", "suggestedQty": 50, "reason": "..." }],
-     "expiring": [{ "product": "...", "expiry_date": "2026-12-01" }] }
-   ```
-4. The dashboard shows the summary and the lists. Each restock suggestion has a **Find suppliers** button that runs the supplier search below.
+1. **MediFind builds the list itself, with arithmetic** (`backend/lib/forecast.js`): units sold in the last 28 days divided by 28 gives units a day, and units in stock divided by units a day gives days left. Items that run out within 14 days come first, soonest first, each with an order that covers 30 days of sales. Low-stock items that have not sold in the last 4 weeks come after, then stock close to expiry, using the levels set on the Settings page.
+2. It sends Gemini that finished list (product names, units left, units a day, days left, order quantity, expiry dates). Nothing else is sent.
+3. Gemini returns only `{ "summary": string }`: one or two sentences on what to do first.
+4. The dashboard shows the summary and the list. **The products, days left and order quantities always come from step 1**, so the AI cannot add a product or change a number. Each item has a **Find suppliers** button that runs the supplier search below with the order quantity filled in.
 
 ![Pill stock insights](screenshots/pill-insights.png)
 
@@ -56,11 +52,11 @@ Till operator types a note
   -> Complete sale (unchanged)
 ```
 
-### Not AI: the stock-out forecast and the weekly summary
+### Not AI: Pill's numbers and the weekly summary
 
-These two features use **plain arithmetic** on the pharmacy's own records. They were kept away from the AI on purpose, because their numbers must be exact and the same every time.
+These use **plain arithmetic** on the pharmacy's own records. They were kept away from the AI on purpose, because their numbers must be exact and the same every time.
 
-- **Stock-out forecast** (`GET /api/reports/forecast`, in `backend/lib/forecast.js`): units sold in the last 28 days divided by 28 gives units a day. Units in stock divided by units a day gives days left. The suggested order covers 30 days of sales. A pharmacy that started selling less than 28 days ago is measured over the days since its first sale (at least 7).
+- **Pill's list** (in `backend/lib/forecast.js`, step 1 above): units sold in the last 28 days divided by 28 gives units a day. Units in stock divided by units a day gives days left. The suggested order covers 30 days of sales. A pharmacy that started selling less than 28 days ago is measured over the days since its first sale (at least 7).
 - **Weekly summary** (`GET /api/reports/weekly`, in `backend/lib/weekly.js`): totals for the last 7 days and the 7 days before, best sellers, busiest day, sales by staff member, and the stock counts. The message is written from a fixed template.
 
 ```
@@ -77,7 +73,7 @@ Pharmacist types a request
 The app keeps working without Gemini, for example when the key is missing, the quota has run out, the network fails, or the reply is not valid JSON:
 
 - **Supplier search** falls back to simple parsing: the first number in the text is the quantity, words such as "urgent" or "asap" set high urgency, and the remaining keywords are searched.
-- **Pill** falls back to a rule-based summary that lists the lowest-stock items first, with a suggested quantity that brings each one back up to about 50 units.
+- **Pill** shows the same list with a plain summary ("2 products will run out within a week at the current rate of sales. Order Insulin first."), because only the summary comes from the AI.
 - **Type the sale** falls back to built-in rules: the note is split at commas and "and", quantities such as "2", "2x", "x2" or "two" are read, and each medicine is matched to the closest product name (small typos are allowed). The screen says which way the note was read.
 
 Each failure is logged on the server.
@@ -86,7 +82,7 @@ Each failure is logged on the server.
 
 - **Rate limits:** the three AI endpoints are limited to 10 requests a minute and 200 a day per user, and 60 a minute across all users. The limits can be changed with environment variables and are explained in `backend/lib/rateLimit.js`.
 - **Login and approval:** only logged-in, approved staff can reach the AI endpoints.
-- **Small requests:** Pill sends at most 30 short items, and Type the sale sends one short note and the product names (at most 400), so each call costs a fraction of a cent.
+- **Small requests:** Pill sends at most 12 short items, and Type the sale sends one short note and the product names (at most 400), so each call costs a fraction of a cent.
 
 ## Limitations
 

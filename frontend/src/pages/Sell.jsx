@@ -22,7 +22,11 @@ async function call(method, path, body) {
   } catch {
     /* no body */
   }
-  if (!res.ok) throw new Error(data?.error || `${method} ${path} failed (${res.status})`);
+  if (!res.ok) {
+    const err = new Error(data?.error || `${method} ${path} failed (${res.status})`);
+    err.data = data; // e.g. code CUSTOMER_CONFLICT with the customer it clashes with
+    throw err;
+  }
   return data;
 }
 
@@ -49,7 +53,10 @@ export default function Sell() {
   const [cName, setCName] = useState('');
   const [cPhone, setCPhone] = useState('');
   const [cEmail, setCEmail] = useState('');
+  // id of a customer picked from the suggestions (false = none): the sale goes to exactly them
   const [picked, setPicked] = useState(false);
+  // the phone or email typed is already saved for someone with another name
+  const [conflict, setConflict] = useState(null);
   const [matches, setMatches] = useState([]);
   const [method, setMethod] = useState('Cash');
 
@@ -155,12 +162,14 @@ export default function Sell() {
     setCName(c.name || '');
     setCPhone(c.phone || '');
     setCEmail(String(c.email || '').endsWith('@walkin.medifind') ? '' : c.email || '');
-    setPicked(true);
+    setPicked(c.id || false);
     setMatches([]);
+    setConflict(null);
   };
 
   const checkout = async () => {
     setError('');
+    setConflict(null);
     if (cart.length === 0) {
       setError('Add at least one medicine to the sale.');
       return;
@@ -168,6 +177,7 @@ export default function Sell() {
     setSubmitting(true);
     try {
       const res = await call('POST', '/pos/checkout', {
+        customer_id: picked || undefined,
         customer_name: cName,
         phone: cPhone,
         email: cEmail,
@@ -178,7 +188,8 @@ export default function Sell() {
       setCart([]);
       setRefreshKey((k) => k + 1);
     } catch (e) {
-      setError(e.message || 'Could not complete the sale');
+      if (e.data?.code === 'CUSTOMER_CONFLICT') setConflict(e.data);
+      else setError(e.message || 'Could not complete the sale');
     } finally {
       setSubmitting(false);
     }
@@ -190,6 +201,7 @@ export default function Sell() {
     setCPhone('');
     setCEmail('');
     setPicked(false);
+    setConflict(null);
     setMethod('Cash');
     setError('');
   };
@@ -445,7 +457,13 @@ export default function Sell() {
                 value={cName}
                 onChange={(e) => {
                   setCName(e.target.value);
+                  // a different name is a different person: drop the picked customer's details too
+                  if (picked) {
+                    setCPhone('');
+                    setCEmail('');
+                  }
                   setPicked(false);
+                  setConflict(null);
                 }}
               />
               {shownMatches.length > 0 && !picked && (
@@ -486,16 +504,49 @@ export default function Sell() {
                 className={inputCls}
                 placeholder="Phone (optional)"
                 value={cPhone}
-                onChange={(e) => setCPhone(e.target.value)}
+                onChange={(e) => {
+                  setCPhone(e.target.value);
+                  setConflict(null);
+                }}
               />
               <input
                 className={inputCls}
                 type="email"
                 placeholder="Email (optional)"
                 value={cEmail}
-                onChange={(e) => setCEmail(e.target.value)}
+                onChange={(e) => {
+                  setCEmail(e.target.value);
+                  setConflict(null);
+                }}
               />
             </div>
+
+            {conflict && (
+              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="font-medium">{conflict.error}</div>
+                <div className="mt-0.5 text-xs">
+                  Is this sale for {conflict.customer.name}, or is it someone else?
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => pickCustomer(conflict.customer)}
+                    className="rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
+                  >
+                    Sell to {conflict.customer.name}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (conflict.field === 'email') setCEmail('');
+                      else setCPhone('');
+                      setConflict(null);
+                    }}
+                    className="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-900"
+                  >
+                    {conflict.field === 'email' ? 'Use a different email' : 'Use a different number'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <label className="mb-1 mt-4 block text-xs font-semibold text-gray-500">
               Payment method

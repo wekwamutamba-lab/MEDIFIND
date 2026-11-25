@@ -51,7 +51,7 @@ app.use('/api/pos', posRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/settings', settingsRouter); // admin only (not in TILL_ALLOWED)
 app.use('/api/platform', platformRouter); // platform owners only: approve new pharmacies
-app.use('/api/reports', reportsRouter); // admin only: stock-out forecast, weekly summary
+app.use('/api/reports', reportsRouter); // admin only: weekly summary
 app.use('/api/stats', statsRouter);
 app.use('/api', statsRouter); // alias: /api/overview and /api/sales
 app.use('/api', sourcingRouter); // POST /api/find, /api/restock

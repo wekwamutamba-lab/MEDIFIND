@@ -5,15 +5,15 @@ import { listTickets, sendTicket } from '../lib/extra';
 const FAQ = [
   {
     q: 'How does Pill, the stock assistant, work?',
-    a: 'Pill reads your inventory, finds products that are low, out of stock or close to expiry, and asks an AI model to write a short summary and restock suggestions. You decide what to do with them.',
+    a: 'Pill lists what will run out first. It divides how many of each item you sold in the last 4 weeks by 28 to get a daily rate, works out how many days your stock will last, and suggests an order that covers 30 days. Low-stock items that are not selling and stock close to expiry come after. These numbers are plain arithmetic; the AI only writes the short summary at the top. It does not know about seasons or one-off bulk sales, so you decide what to order.',
   },
   {
     q: 'How do I type a sale instead of searching for each medicine?',
     a: 'On New Sale, type what the customer wants in the "Type the sale" box, for example "2 paracetamol and 1 amoxicillin for Tendai", and press Read. MediFind finds each medicine in your stock and lists it with its price and stock. Check each line, change or skip any that are wrong, then press Add to sale. Nothing is sold until you press Complete sale.',
   },
   {
-    q: 'How does "Running out soon" on the dashboard work?',
-    a: 'It divides how many of each item you sold in the last 4 weeks by 28 to get a daily rate, then works out how many days your stock will last at that rate. The suggested order covers 30 days of sales. It is plain arithmetic, not AI, so it does not know about seasons or one-off bulk sales.',
+    q: 'Why does New Sale ask "Is this sale for…?"',
+    a: 'The phone number or email you typed is already saved for a customer with a different name. Choose "Sell to" that customer if it is them, or use a different number if it is someone else. MediFind never adds a sale to another customer\'s history without asking.',
   },
   {
     q: 'How do I send myself the weekly summary?',

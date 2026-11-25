@@ -3,14 +3,14 @@ import * as sb from '../lib/supabase.js';
 import { loadOrders } from '../lib/data.js';
 import { selectAll } from '../lib/selectAll.js';
 import { getStockRules, expiryFlags } from '../lib/stockRules.js';
-import { forecastStock, DEFAULT_HORIZON } from '../lib/forecast.js';
+import { forecastStock } from '../lib/forecast.js';
 import { weeklySummary } from '../lib/weekly.js';
 
 const supabase = sb.supabase || sb.default;
 const router = Router();
 
-// Admin only (not in TILL_ALLOWED). Both use plain arithmetic on this pharmacy's
-// own records, no AI.
+// Admin only (not in TILL_ALLOWED). Plain arithmetic on this pharmacy's own records,
+// no AI. The stock-out forecast itself is shown by Pill (routes/ai.js).
 
 async function load(pharmacy) {
   const [orders, products] = await Promise.all([
@@ -19,18 +19,6 @@ async function load(pharmacy) {
   ]);
   return { orders, products };
 }
-
-// GET /api/reports/forecast?days=14  -> products that run out within that many days
-router.get('/forecast', async (req, res) => {
-  try {
-    const days = Math.floor(Number(req.query.days));
-    const horizon = days >= 1 && days <= 90 ? days : DEFAULT_HORIZON;
-    const { orders, products } = await load(req.pharmacy);
-    res.json(forecastStock(products, orders, { horizon }));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // GET /api/reports/weekly  -> this week's figures and a message ready to send
 router.get('/weekly', async (req, res) => {

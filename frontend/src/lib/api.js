@@ -145,7 +145,6 @@ export const getRegistrations = () => request('/platform/registrations');
 export const decideRegistration = (id, decision) =>
   request(`/platform/registrations/${id}/${decision === 'approve' ? 'approve' : 'decline'}`, { method: 'POST' });
 
-// ---------- Time savers: typed sale notes, stock-out forecast, weekly summary ----------
+// ---------- Time savers: typed sale notes, weekly summary ----------
 export const readSaleNote = (note) => request('/pos/note', { method: 'POST', body: JSON.stringify({ note }) });
-export const getForecast = () => request('/reports/forecast');
 export const getWeeklySummary = () => request('/reports/weekly');

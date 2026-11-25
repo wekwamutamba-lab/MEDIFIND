@@ -13,7 +13,6 @@ import {
 import { ShoppingCart, Banknote, Users, AlertTriangle, Sparkles, Pill } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getOverview, getInsights } from '../lib/api';
-import RunningOut from '../components/RunningOut';
 import WeeklySummary from '../components/WeeklySummary';
 
 const money = (n) =>
@@ -179,12 +178,6 @@ export default function Overview() {
         />
       </div>
 
-      {/* Stock-out forecast and the weekly summary */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <RunningOut />
-        <WeeklySummary />
-      </div>
-
       {/* Pill stock assistant */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -195,7 +188,7 @@ export default function Overview() {
             <div>
               <div className="font-semibold text-gray-900">Pill, your stock assistant</div>
               <div className="text-sm text-gray-500">
-                AI reviews your stock and tells you what to restock.
+                Tells you what will run out, from how fast each item is selling, and what to order.
               </div>
             </div>
           </div>
@@ -231,9 +224,13 @@ export default function Overview() {
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-gray-900">
                           {r.product}{' '}
-                          <span className="font-normal text-gray-500">x {r.suggestedQty}</span>
+                          <span className="font-normal text-gray-500">· order {r.suggestedQty}</span>
                         </div>
-                        <div className="truncate text-xs text-gray-500">{r.reason}</div>
+                        <div
+                          className={`text-xs ${r.days_left != null && r.days_left <= 3 ? 'font-medium text-red-700' : 'text-gray-500'}`}
+                        >
+                          {r.reason}
+                        </div>
                       </div>
                       <button
                         onClick={() =>
@@ -260,15 +257,25 @@ export default function Overview() {
                       className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-sm"
                     >
                       <span className="font-semibold text-gray-900">{x.product}</span>
-                      <span className="text-xs text-orange-600">{x.expiry_date}</span>
+                      <span className={`text-xs ${x.expired ? 'font-semibold text-red-700' : 'text-orange-600'}`}>
+                        {x.expired ? `Expired ${x.expiry_date}` : x.expiry_date}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+            <p className="text-[11px] text-gray-400">
+              The list, days left and order quantities are worked out from your own stock and the
+              last 4 weeks of sales.{' '}
+              {insights.used_ai ? 'The summary at the top is written by AI.' : ''}
+            </p>
           </div>
         )}
       </div>
+
+      {/* The last 7 days in plain words, ready to send */}
+      <WeeklySummary />
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-5">

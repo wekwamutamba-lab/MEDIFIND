@@ -23,7 +23,7 @@ MediFind's AI only makes suggestions. It never sees patient information, it neve
 ## Transparency
 
 - **AI output is labelled.** Labels include "Understood by AI" on supplier search, "Pill, your stock assistant" on the dashboard, and "Read with AI from your own product list" on typed sales.
-- **Not everything is AI.** The stock-out forecast and the weekly summary use plain arithmetic on the pharmacy's own records, so their numbers are exact and can be checked by hand.
+- **Not everything is AI.** Pill's list (what runs out first, days left, how much to order) and the weekly summary use plain arithmetic on the pharmacy's own records, so their numbers are exact and can be checked by hand. The AI writes only Pill's one- or two-sentence summary, and the dashboard says so.
 - **Supplier data comes with a disclaimer.** The search results say that prices and stock are indicative, that the pharmacist should confirm with the supplier, and that MediFind does not give medical advice.
 - **The app works without AI.** If the AI fails, MediFind falls back to simple rules instead of breaking, and these limits are documented in [AI_INTEGRATION.md](AI_INTEGRATION.md).
 - **Sales are traceable.** Every sale records which staff member made it, and admins can see this on the Orders page.
@@ -31,6 +31,7 @@ MediFind's AI only makes suggestions. It never sees patient information, it neve
 ## Human in the loop
 
 - **People make every order.** Nothing is ordered automatically. The pharmacist reviews the supplier, quantity and total, then confirms each restock order.
+- **Customers are never matched by guesswork.** If a phone number or email typed at the till is already saved for someone with a different name, the till operator is asked which person the sale is for.
 - **People check every typed sale.** The till operator sees every line MediFind read from a note, can change or skip it, and still presses Complete sale. The AI can only choose from the pharmacy's own products.
 - **People approve every account.** Admins approve each new account and can change roles or suspend someone at any time.
 - **Clinical decisions stay with the pharmacist.** The AI is never used for diagnosis, dosing or any other medical decision.
