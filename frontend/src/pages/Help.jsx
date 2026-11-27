@@ -8,8 +8,8 @@ const FAQ = [
     a: 'Pill lists what will run out first. It divides how many of each item you sold in the last 4 weeks by 28 to get a daily rate, works out how many days your stock will last, and suggests an order that covers 30 days. Low-stock items that are not selling and stock close to expiry come after. These numbers are plain arithmetic; the AI only writes the short summary at the top. It does not know about seasons or one-off bulk sales, so you decide what to order.',
   },
   {
-    q: 'How do I type a sale instead of searching for each medicine?',
-    a: 'On New Sale, type what the customer wants in the "Type the sale" box, for example "2 paracetamol and 1 amoxicillin for Tendai", and press Read. MediFind finds each medicine in your stock and lists it with its price and stock. Check each line, change or skip any that are wrong, then press Add to sale. Nothing is sold until you press Complete sale.',
+    q: 'How do I find medicines on New Sale?',
+    a: 'Everything starts in the one search box at the top of Current sale. Type a medicine name and pick it from the list (or press Enter for the highlighted one). You can also type the whole sale in one line, for example "2 paracetamol and 1 amoxicillin for Tendai", and press Enter: MediFind finds each medicine in your stock and lists it under the box with its price and stock. If a name is spelt wrong and nothing matches, choose "Let MediFind read it". Check each line, change or skip any that are wrong, then press Add to sale. Nothing is sold until you press Complete sale.',
   },
   {
     q: 'Why does New Sale ask "Is this sale for…?"',

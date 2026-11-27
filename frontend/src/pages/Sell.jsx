@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAccess } from '../lib/access';
-import { Search, Plus, Minus, Trash2, CheckCircle2, ShoppingCart, UserPlus, Printer } from 'lucide-react';
+import { Plus, Minus, Trash2, CheckCircle2, ShoppingCart, UserPlus, Printer } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
-import SaleNote from '../components/SaleNote';
+import SaleSearch from '../components/SaleSearch';
 
 const API = import.meta.env.VITE_API_URL;
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
@@ -33,20 +33,9 @@ async function call(method, path, body) {
 const inputCls =
   'w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime';
 
-const statusStyle = {
-  'In Stock': 'bg-green-100 text-green-700',
-  'Low Stock': 'bg-orange-100 text-orange-700',
-  'Out of Stock': 'bg-red-100 text-red-700',
-};
-
 export default function Sell() {
   const navigate = useNavigate();
   const { isAdmin } = useAccess();
-
-  const [pq, setPq] = useState('');
-  const [products, setProducts] = useState([]);
-  const [pLoading, setPLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const [cart, setCart] = useState([]);
 
@@ -58,31 +47,20 @@ export default function Sell() {
   // the phone or email typed is already saved for someone with another name
   const [conflict, setConflict] = useState(null);
   const [matches, setMatches] = useState([]);
+  // suggestions only show while the name box is in use, so they never cover the phone and email boxes
+  const [nameFocus, setNameFocus] = useState(false);
   const [method, setMethod] = useState('Cash');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState(null);
 
-  // Product search
-  useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      setPLoading(true);
-      try {
-        const res = await call('GET', `/products?search=${encodeURIComponent(pq)}&limit=12`);
-        if (!cancelled) setProducts(res?.data ?? []);
-      } catch (e) {
-        if (!cancelled) setError(e.message);
-      } finally {
-        if (!cancelled) setPLoading(false);
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [pq, refreshKey]);
+  // Stock lookup for the one search box (SaleSearch); always fresh, so stock
+  // numbers are up to date after each sale
+  const searchStock = useCallback(async (q) => {
+    const res = await call('GET', `/products?search=${encodeURIComponent(q)}&limit=8`);
+    return res?.data ?? [];
+  }, []);
 
   // Existing customer suggestions, only once at least 2 letters are typed
   const shownMatches = cName.trim().length >= 2 ? matches : [];
@@ -121,7 +99,7 @@ export default function Sell() {
     });
   };
 
-  // Lines checked in "Type the sale" (never more than is in stock)
+  // Lines checked after the box read a whole sale (never more than is in stock)
   const addLines = (lines, customer) => {
     setError('');
     setCart((c) => {
@@ -186,7 +164,6 @@ export default function Sell() {
       });
       setReceipt(res);
       setCart([]);
-      setRefreshKey((k) => k + 1);
     } catch (e) {
       if (e.data?.code === 'CUSTOMER_CONFLICT') setConflict(e.data);
       else setError(e.message || 'Could not complete the sale');
@@ -300,6 +277,7 @@ export default function Sell() {
   }
 
   // ---------- Sale screen ----------
+  const units = cart.reduce((n, x) => n + x.qty, 0);
   return (
     <div className="space-y-6">
       <div>
@@ -319,101 +297,43 @@ export default function Sell() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Medicines */}
-        <div className="space-y-4 lg:col-span-3">
-          <SaleNote onAdd={addLines} />
-
-          <div className="relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              value={pq}
-              onChange={(e) => setPq(e.target.value)}
-              placeholder="Search medicines…"
-              className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
-            />
-          </div>
-
-          {pLoading && <div className="text-sm text-gray-400">Loading…</div>}
-          {!pLoading && products.length === 0 && (
-            <div className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500">
-              No medicines found.
-            </div>
-          )}
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {products.map((p) => {
-              const out = (p.quantity || 0) <= 0;
-              return (
-                <div key={p.id} className="flex flex-col rounded-2xl bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-gray-900">{p.name}</div>
-                      <div className="truncate text-xs text-gray-500">{p.category}</div>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        statusStyle[p.status] || 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {p.status}
-                    </span>
-                  </div>
-                  <div className="my-3 flex items-end justify-between">
-                    <div className="text-lg font-bold text-sidebar">{money(p.price)}</div>
-                    <div className="text-xs text-gray-500">{p.quantity} in stock</div>
-                  </div>
-                  <button
-                    onClick={() => addToCart(p)}
-                    disabled={out}
-                    className="mt-auto flex items-center justify-center gap-1 rounded-xl bg-sidebar py-2 text-sm font-semibold text-white hover:bg-[#145540] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Plus size={14} /> {out ? 'Out of stock' : 'Add to sale'}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Sale panel */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
+      <div className="grid items-start gap-6 lg:grid-cols-5">
+        {/* Current sale: the one place to find medicines (by name, or the whole sale typed in one line) */}
+        <section className="rounded-2xl bg-white p-5 shadow-sm lg:col-span-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-semibold text-gray-900">
               <ShoppingCart size={18} /> Current sale
-            </div>
-
-            {cart.length === 0 && (
-              <div className="py-4 text-center text-sm text-gray-400">
-                No medicines added yet.
-              </div>
+            </h2>
+            {cart.length > 0 && (
+              <span className="text-xs text-gray-500">
+                {cart.length} {cart.length === 1 ? 'medicine' : 'medicines'} · {units} {units === 1 ? 'unit' : 'units'}
+              </span>
             )}
+          </div>
 
-            <div className="space-y-3">
-              {cart.map((x) => (
-                <div key={x.product_id} className="rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+          <SaleSearch search={searchStock} onAddProduct={addToCart} onAddLines={addLines} />
+
+          <div className="mt-4">
+            {cart.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-400">
+                No medicines in this sale yet.
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+                {cart.map((x) => (
+                  <li key={x.product_id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5">
+                    <div className="min-w-0 flex-1 basis-40">
                       <div className="truncate text-sm font-semibold text-gray-900">{x.name}</div>
-                      <div className="text-xs text-gray-500">{money(x.price)} each</div>
+                      <div className="text-xs text-gray-500">
+                        {money(x.price)} each · {x.stock} in stock
+                      </div>
                     </div>
-                    <button
-                      onClick={() => removeItem(x.product_id)}
-                      className="text-gray-400 hover:text-red-600"
-                      aria-label="Remove"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setQty(x.product_id, x.qty - 1)}
-                        className="rounded-lg border border-gray-300 p-1.5"
-                        aria-label="Less"
+                        disabled={x.qty <= 1}
+                        className="rounded-lg border border-gray-300 p-1.5 disabled:opacity-40"
+                        aria-label={`One less ${x.name}`}
                       >
                         <Minus size={12} />
                       </button>
@@ -423,159 +343,172 @@ export default function Sell() {
                         max={x.stock}
                         value={x.qty}
                         onChange={(e) => setQty(x.product_id, e.target.value)}
+                        aria-label={`Quantity of ${x.name}`}
                         className="w-14 rounded-lg border border-gray-300 py-1 text-center text-sm"
                       />
                       <button
                         onClick={() => setQty(x.product_id, x.qty + 1)}
-                        className="rounded-lg border border-gray-300 p-1.5"
-                        aria-label="More"
+                        disabled={x.qty >= x.stock}
+                        className="rounded-lg border border-gray-300 p-1.5 disabled:opacity-40"
+                        aria-label={`One more ${x.name}`}
                       >
                         <Plus size={12} />
                       </button>
                     </div>
-                    <div className="text-sm font-semibold">{money(x.price * x.qty)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
-              <span className="text-sm text-gray-500">Total</span>
-              <span className="text-2xl font-bold text-sidebar">{money(total)}</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
-              <UserPlus size={18} /> Customer
-            </div>
-
-            <div className="relative">
-              <input
-                className={inputCls}
-                placeholder="Customer name (leave empty for walk-in)"
-                value={cName}
-                onChange={(e) => {
-                  setCName(e.target.value);
-                  // a different name is a different person: drop the picked customer's details too
-                  if (picked) {
-                    setCPhone('');
-                    setCEmail('');
-                  }
-                  setPicked(false);
-                  setConflict(null);
-                }}
-              />
-              {shownMatches.length > 0 && !picked && (
-                <div className="absolute left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
-                  <div className="px-3 py-1 text-[11px] font-semibold uppercase text-gray-400">
-                    Existing customers
-                  </div>
-                  {shownMatches.map((c) => (
+                    <div className="w-20 text-right text-sm font-semibold">{money(x.price * x.qty)}</div>
                     <button
-                      key={c.id}
-                      onClick={() => pickCustomer(c)}
-                      className="block w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+                      onClick={() => removeItem(x.product_id)}
+                      className="text-gray-400 hover:text-red-600"
+                      aria-label={`Remove ${x.name}`}
                     >
-                      <div className="text-sm font-semibold text-gray-800">{c.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {c.phone || c.email || 'No phone or email saved'} · {c.total_orders} orders
-                      </div>
+                      <Trash2 size={15} />
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {picked ? (
-              <div className="mt-2 text-xs font-medium text-green-700">
-                Existing customer selected. This sale will be added to their history.
-              </div>
-            ) : (
-              cName.trim().length >= 2 && (
-                <div className="mt-2 text-xs text-gray-500">
-                  Not in your list? A new customer will be created when you complete the sale.
-                </div>
-              )
+                  </li>
+                ))}
+              </ul>
             )}
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <input
-                className={inputCls}
-                placeholder="Phone (optional)"
-                value={cPhone}
-                onChange={(e) => {
-                  setCPhone(e.target.value);
-                  setConflict(null);
-                }}
-              />
-              <input
-                className={inputCls}
-                type="email"
-                placeholder="Email (optional)"
-                value={cEmail}
-                onChange={(e) => {
-                  setCEmail(e.target.value);
-                  setConflict(null);
-                }}
-              />
-            </div>
-
-            {conflict && (
-              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                <div className="font-medium">{conflict.error}</div>
-                <div className="mt-0.5 text-xs">
-                  Is this sale for {conflict.customer.name}, or is it someone else?
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => pickCustomer(conflict.customer)}
-                    className="rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
-                  >
-                    Sell to {conflict.customer.name}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (conflict.field === 'email') setCEmail('');
-                      else setCPhone('');
-                      setConflict(null);
-                    }}
-                    className="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-900"
-                  >
-                    {conflict.field === 'email' ? 'Use a different email' : 'Use a different number'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <label className="mb-1 mt-4 block text-xs font-semibold text-gray-500">
-              Payment method
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {METHODS.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMethod(m)}
-                  className={`rounded-xl border py-2 text-sm font-medium ${
-                    method === m
-                      ? 'border-sidebar bg-sidebar text-white'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={checkout}
-              disabled={submitting || cart.length === 0}
-              className="mt-5 w-full rounded-xl bg-lime py-3 text-sm font-bold text-sidebar hover:bg-[#cfe85c] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? 'Completing…' : `Complete sale · ${money(total)}`}
-            </button>
           </div>
-        </div>
+
+          <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
+            <span className="text-sm text-gray-500">Total</span>
+            <span className="text-2xl font-bold text-sidebar">{money(total)}</span>
+          </div>
+        </section>
+
+        {/* Who it is for and how they pay */}
+        <section className="rounded-2xl bg-white p-5 shadow-sm lg:sticky lg:top-6 lg:col-span-2">
+          <h2 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
+            <UserPlus size={18} /> Customer and payment
+          </h2>
+
+          <div className="relative">
+            <input
+              className={inputCls}
+              placeholder="Customer name (leave empty for walk-in)"
+              value={cName}
+              onFocus={() => setNameFocus(true)}
+              onBlur={() => setNameFocus(false)}
+              onChange={(e) => {
+                setCName(e.target.value);
+                // a different name is a different person: drop the picked customer's details too
+                if (picked) {
+                  setCPhone('');
+                  setCEmail('');
+                }
+                setPicked(false);
+                setConflict(null);
+              }}
+            />
+            {nameFocus && shownMatches.length > 0 && !picked && (
+              <div className="absolute left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
+                <div className="px-3 py-1 text-[11px] font-semibold uppercase text-gray-400">
+                  Existing customers
+                </div>
+                {shownMatches.map((c) => (
+                  <button
+                    key={c.id}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pickCustomer(c)}
+                    className="block w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+                  >
+                    <div className="text-sm font-semibold text-gray-800">{c.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {c.phone || c.email || 'No phone or email saved'} · {c.total_orders} orders
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {picked ? (
+            <div className="mt-2 text-xs font-medium text-green-700">
+              Existing customer selected. This sale will be added to their history.
+            </div>
+          ) : (
+            cName.trim().length >= 2 && (
+              <div className="mt-2 text-xs text-gray-500">
+                Not in your list? A new customer will be created when you complete the sale.
+              </div>
+            )
+          )}
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input
+              className={inputCls}
+              placeholder="Phone (optional)"
+              value={cPhone}
+              onChange={(e) => {
+                setCPhone(e.target.value);
+                setConflict(null);
+              }}
+            />
+            <input
+              className={inputCls}
+              type="email"
+              placeholder="Email (optional)"
+              value={cEmail}
+              onChange={(e) => {
+                setCEmail(e.target.value);
+                setConflict(null);
+              }}
+            />
+          </div>
+
+          {conflict && (
+            <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="font-medium">{conflict.error}</div>
+              <div className="mt-0.5 text-xs">
+                Is this sale for {conflict.customer.name}, or is it someone else?
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={() => pickCustomer(conflict.customer)}
+                  className="rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
+                >
+                  Sell to {conflict.customer.name}
+                </button>
+                <button
+                  onClick={() => {
+                    if (conflict.field === 'email') setCEmail('');
+                    else setCPhone('');
+                    setConflict(null);
+                  }}
+                  className="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-900"
+                >
+                  {conflict.field === 'email' ? 'Use a different email' : 'Use a different number'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <label className="mb-1 mt-4 block text-xs font-semibold text-gray-500">
+            Payment method
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {METHODS.map((m) => (
+              <button
+                key={m}
+                onClick={() => setMethod(m)}
+                className={`rounded-xl border py-2 text-sm font-medium ${
+                  method === m
+                    ? 'border-sidebar bg-sidebar text-white'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={checkout}
+            disabled={submitting || cart.length === 0}
+            className="mt-5 w-full rounded-xl bg-lime py-3 text-sm font-bold text-sidebar hover:bg-[#cfe85c] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? 'Completing…' : `Complete sale · ${money(total)}`}
+          </button>
+        </section>
       </div>
     </div>
   );

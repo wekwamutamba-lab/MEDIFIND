@@ -35,7 +35,7 @@ The pharmacist types what they need in their own words, for example "I urgently 
 
 ### 3. Type the sale (`POST /api/pos/note`)
 
-On New Sale, the till operator can type what the customer wants, for example "2 paracetamol and 1 amoxicillin for Tendai", instead of searching for each item.
+New Sale has one search box, at the top of Current sale. Typing a medicine name searches the stock as usual. Typing the whole sale, for example "2 paracetamol and 1 amoxicillin for Tendai", offers **Read the whole sale** in the same list (Enter picks it), and a name that matches nothing (often a typo) offers **Let MediFind read it**. Either one sends the text to `POST /api/pos/note`.
 
 1. The backend takes the customer's name off the note ("for Tendai", "customer: Tendai"). It also removes any phone number, and a trailing "for ..." that is not a medicine. That copy of the note, and the **names** of the pharmacy's own products, are sent to Gemini. Nothing else is sent.
 2. Gemini returns `{ "lines": [{ "said": string, "product": string | null, "quantity": number }] }`. The prompt tells it to copy product names exactly from the list, and to return `null` instead of guessing between strengths or forms.
