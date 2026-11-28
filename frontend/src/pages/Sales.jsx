@@ -12,6 +12,7 @@ import {
 import { Banknote, TrendingUp, Wallet, ShoppingBag } from 'lucide-react';
 import { getSales } from '../lib/api';
 import ExportMenu from '../components/ExportMenu';
+import useLiveRefresh from '../lib/useLiveRefresh';
 
 const money = (n) =>
   `$${Number(n || 0).toLocaleString(undefined, {
@@ -71,16 +72,23 @@ export default function Sales() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updatedAt, setUpdatedAt] = useState(null);
 
-  const load = async () => {
-    setLoading(true);
-    setError('');
+  // quiet = a refresh in the background: the charts stay on screen until the new
+  // figures arrive, and a failed refresh keeps them instead of showing an error
+  const load = async (quiet = false) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       setData(await getSales());
+      setUpdatedAt(new Date());
+      setError('');
     } catch (e) {
-      setError(e.message || 'Failed to load sales');
+      if (!quiet) setError(e.message || 'Failed to load sales');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
@@ -90,6 +98,9 @@ export default function Sales() {
     load();
   }, []);
 
+  // new sales show in the cards, charts and Orders by time without reloading
+  useLiveRefresh(() => load(true));
+
   const months = data?.revenueByMonth ?? [];
   const products = data?.topProducts ?? [];
   const grid = buildGrid(data?.ordersByTime);
@@ -97,6 +108,10 @@ export default function Sales() {
   const maxMonth = Math.max(0, ...months.map((m) => Number(m.value) || 0));
   const maxProd = Math.max(1, ...products.map((p) => Number(p.revenue) || 0));
   const hasTimeData = (data?.ordersByTime ?? []).length > 0;
+  const noCost = Number(data?.salesWithoutCost) || 0;
+  const profitNote = noCost
+    ? `${noCost} item${noCost === 1 ? '' : 's'} sold with no cost price left out. Add cost prices on Products.`
+    : 'Revenue minus what the medicines cost you';
 
   // Export: the summary figures, revenue by month and top products
   const buildReport = async () => {
@@ -104,7 +119,9 @@ export default function Sales() {
     const money2 = (v) => Number(v || 0);
     return {
       title: 'Sales report',
-      subtitle: 'Cancelled orders are left out. Profit is an estimate at a 30% margin.',
+      subtitle: `Cancelled orders are left out. Profit and cost come from each product's cost price.${
+        d.salesWithoutCost ? ` ${d.salesWithoutCost} items sold with no cost price are left out of both.` : ''
+      }`,
       fileBase: 'medifind-sales',
       sections: [
         {
@@ -115,8 +132,8 @@ export default function Sales() {
           ],
           rows: [
             ['Total revenue', money2(d.totalRevenue)],
-            ['Estimated profit (30%)', money2(d.totalProfit)],
-            ['Estimated cost', money2(d.totalCost)],
+            ['Profit', money2(d.totalProfit)],
+            ['Cost of medicines sold', money2(d.totalCost)],
             ['Average order value', money2(d.avgOrderValue)],
           ],
         },
@@ -154,7 +171,12 @@ export default function Sales() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
-          <p className="text-sm text-gray-500">Revenue, profit and when your customers buy</p>
+          <p className="text-sm text-gray-500">
+            Revenue, profit and when your customers buy
+            {updatedAt && (
+              <span className="text-xs text-gray-400"> · updated {updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            )}
+          </p>
         </div>
         <ExportMenu buildReport={buildReport} />
       </div>
@@ -184,13 +206,13 @@ export default function Sales() {
           icon={TrendingUp}
           label="Total Profit"
           value={loading ? '…' : money(data?.totalProfit)}
-          sub="Estimated at 30% margin"
+          sub={loading ? '' : profitNote}
         />
         <Stat
           icon={Wallet}
           label="Total Cost"
           value={loading ? '…' : money(data?.totalCost)}
-          sub="Revenue minus profit"
+          sub="What the medicines sold cost you"
         />
         <Stat
           icon={ShoppingBag}
@@ -288,7 +310,9 @@ export default function Sales() {
               </div>
             </div>
           )}
-          <p className="mt-3 text-[11px] text-gray-400">Times follow the server clock (UTC).</p>
+          <p className="mt-3 text-[11px] text-gray-400">
+            Times are in your pharmacy&apos;s time zone (Harare). Updates as sales come in.
+          </p>
         </div>
 
         {/* Top products */}

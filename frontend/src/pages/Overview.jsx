@@ -12,14 +12,17 @@ import {
 } from 'recharts';
 import { ShoppingCart, Banknote, Users, AlertTriangle, Sparkles, Pill } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getOverview, getInsights } from '../lib/api';
+import { getOverview, getInsights, getWeeklySummary } from '../lib/api';
 import WeeklySummary from '../components/WeeklySummary';
+import useLiveRefresh from '../lib/useLiveRefresh';
 
 const money = (n) =>
   `$${Number(n || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const clock = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const slug = (name) =>
   String(name || '')
@@ -79,7 +82,11 @@ export default function Overview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [updatedAt, setUpdatedAt] = useState(null);
+
   const [insights, setInsights] = useState(null);
+  const [weekly, setWeekly] = useState(null);
+  const [weeklyError, setWeeklyError] = useState('');
   const [insLoading, setInsLoading] = useState(false);
   const [insError, setInsError] = useState('');
 
@@ -91,15 +98,21 @@ export default function Overview() {
     });
   }, []);
 
-  const load = async () => {
-    setLoading(true);
-    setError('');
+  // quiet = a refresh in the background: the figures on screen stay until the new
+  // ones arrive, and a failed refresh keeps them instead of showing an error
+  const load = async (quiet = false) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       setData(await getOverview());
+      setUpdatedAt(new Date());
+      setError('');
     } catch (e) {
-      setError(e.message || 'Failed to load the overview');
+      if (!quiet) setError(e.message || 'Failed to load the overview');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
@@ -109,21 +122,26 @@ export default function Overview() {
     load();
   }, []);
 
+  // new sales show on the cards and charts without reloading the page
+  useLiveRefresh(() => load(true));
+
+  // Pill: stock insights and the weekly report, fetched together. If one of them
+  // fails, the other still shows.
   const runInsights = async () => {
     setInsLoading(true);
     setInsError('');
-    try {
-      setInsights(await getInsights());
-    } catch (e) {
-      setInsError(e.message || 'Could not generate insights');
-    } finally {
-      setInsLoading(false);
-    }
+    setWeeklyError('');
+    const [ins, week] = await Promise.allSettled([getInsights(), getWeeklySummary()]);
+    if (ins.status === 'fulfilled') setInsights(ins.value);
+    else setInsError(ins.reason?.message || 'Could not generate insights');
+    if (week.status === 'fulfilled') setWeekly(week.value);
+    else setWeeklyError(week.reason?.message || 'Could not load the weekly report');
+    setInsLoading(false);
   };
 
   const sales = data?.salesByMonth ?? [];
   const top = data?.topMedicines ?? [];
-  const latest = data?.latestOrders ?? [];
+  const noCost = Number(data?.salesWithoutCost) || 0;
   const maxSale = Math.max(0, ...sales.map((s) => Number(s.value) || 0));
   const maxTop = Math.max(1, ...top.map((t) => Number(t.value) || 0));
 
@@ -161,7 +179,11 @@ export default function Overview() {
           icon={Banknote}
           label="Total Revenue"
           value={loading ? '…' : money(data?.totalRevenue)}
-          sub={`Profit ${money(data?.totalProfit)}`}
+          sub={
+            loading
+              ? ''
+              : `Profit ${money(data?.totalProfit)}${noCost ? ` · ${noCost} without a cost price` : ''}`
+          }
         />
         <Stat
           icon={Users}
@@ -188,7 +210,8 @@ export default function Overview() {
             <div>
               <div className="font-semibold text-gray-900">Pill, your stock assistant</div>
               <div className="text-sm text-gray-500">
-                Tells you what will run out, from how fast each item is selling, and what to order.
+                What will run out and what to order, from how fast each item sells, plus your
+                weekly report.
               </div>
             </div>
           </div>
@@ -207,80 +230,94 @@ export default function Overview() {
           </div>
         )}
 
-        {insights && (
-          <div className="mt-5 space-y-4">
-            <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-700">{insights.summary}</p>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Restock suggestions
-                </div>
-                <div className="space-y-2">
-                  {(insights.restock ?? []).map((r, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-gray-900">
-                          {r.product}{' '}
-                          <span className="font-normal text-gray-500">· order {r.suggestedQty}</span>
-                        </div>
+        {(insights || weekly || weeklyError) && (
+          <div className="mt-5 space-y-5">
+            {insights && (
+              <div className="space-y-4">
+                <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-700">{insights.summary}</p>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Restock suggestions
+                    </div>
+                    <div className="space-y-2">
+                      {(insights.restock ?? []).map((r, i) => (
                         <div
-                          className={`text-xs ${r.days_left != null && r.days_left <= 3 ? 'font-medium text-red-700' : 'text-gray-500'}`}
+                          key={i}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3"
                         >
-                          {r.reason}
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-gray-900">
+                              {r.product}{' '}
+                              <span className="font-normal text-gray-500">· order {r.suggestedQty}</span>
+                            </div>
+                            <div
+                              className={`text-xs ${r.days_left != null && r.days_left <= 3 ? 'font-medium text-red-700' : 'text-gray-500'}`}
+                            >
+                              {r.reason}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/restock?q=${encodeURIComponent(`${r.suggestedQty} ${r.product}`)}`
+                              )
+                            }
+                            className="shrink-0 rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
+                          >
+                            Find suppliers
+                          </button>
                         </div>
-                      </div>
-                      <button
-                        onClick={() =>
-                          navigate(
-                            `/restock?q=${encodeURIComponent(`${r.suggestedQty} ${r.product}`)}`
-                          )
-                        }
-                        className="shrink-0 rounded-lg bg-sidebar px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#145540]"
-                      >
-                        Find suppliers
-                      </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Expiring soon
-                </div>
-                <div className="space-y-2">
-                  {(insights.expiring ?? []).map((x, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-sm"
-                    >
-                      <span className="font-semibold text-gray-900">{x.product}</span>
-                      <span className={`text-xs ${x.expired ? 'font-semibold text-red-700' : 'text-orange-600'}`}>
-                        {x.expired ? `Expired ${x.expiry_date}` : x.expiry_date}
-                      </span>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Expiring soon
                     </div>
-                  ))}
+                    <div className="space-y-2">
+                      {(insights.expiring ?? []).map((x, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-sm"
+                        >
+                          <span className="font-semibold text-gray-900">{x.product}</span>
+                          <span className={`text-xs ${x.expired ? 'font-semibold text-red-700' : 'text-orange-600'}`}>
+                            {x.expired ? `Expired ${x.expiry_date}` : x.expiry_date}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+                <p className="text-[11px] text-gray-400">
+                  The list, days left and order quantities are worked out from your own stock and the
+                  last 4 weeks of sales.{' '}
+                  {insights.used_ai ? 'The summary at the top is written by AI.' : ''}
+                </p>
               </div>
-            </div>
-            <p className="text-[11px] text-gray-400">
-              The list, days left and order quantities are worked out from your own stock and the
-              last 4 weeks of sales.{' '}
-              {insights.used_ai ? 'The summary at the top is written by AI.' : ''}
-            </p>
+            )}
+
+            {/* the last 7 days in plain words, ready to send */}
+            {weekly && <WeeklySummary data={weekly} />}
+            {weeklyError && (
+              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{weeklyError}</div>
+            )}
           </div>
         )}
       </div>
 
-      {/* The last 7 days in plain words, ready to send */}
-      <WeeklySummary />
-
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-3">
-          <div className="mb-4 font-semibold text-gray-900">Sales Analytics</div>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <div className="font-semibold text-gray-900">Sales Analytics</div>
+            {updatedAt && (
+              <div className="text-[11px] text-gray-400">
+                Revenue, last 6 months · updated {clock(updatedAt)}
+              </div>
+            )}
+          </div>
           {sales.length === 0 ? (
             <div className="flex h-[280px] items-center justify-center text-sm text-gray-400">
               {loading ? 'Loading…' : 'No data yet'}
@@ -344,58 +381,6 @@ export default function Overview() {
               </div>
             </>
           )}
-        </div>
-      </div>
-
-      {/* Latest orders */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 font-semibold text-gray-900">Latest Orders</div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase text-gray-500">
-              <tr>
-                <th className="py-2 pr-4">Order</th>
-                <th className="py-2 pr-4">Customer</th>
-                <th className="py-2 pr-4">Medicine</th>
-                <th className="py-2 pr-4">Qty</th>
-                <th className="py-2 pr-4">Total</th>
-                <th className="py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {latest.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-gray-400">
-                    {loading ? 'Loading…' : 'No orders yet'}
-                  </td>
-                </tr>
-              )}
-              {latest.map((o) => (
-                <tr key={o.id} className="border-t border-gray-100">
-                  <td className="py-3 pr-4 font-mono text-xs text-gray-500">
-                    #{String(o.id).slice(0, 8)}
-                  </td>
-                  <td className="py-3 pr-4">{o.customer_name}</td>
-                  <td className="py-3 pr-4">{o.product_name}</td>
-                  <td className="py-3 pr-4">{o.quantity}</td>
-                  <td className="py-3 pr-4">{money(o.total)}</td>
-                  <td className="py-3">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        o.order_status === 'Completed'
-                          ? 'bg-green-100 text-green-700'
-                          : o.order_status === 'Cancelled'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-orange-100 text-orange-700'
-                      }`}
-                    >
-                      {o.order_status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

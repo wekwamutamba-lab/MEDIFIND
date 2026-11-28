@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, Mail, LifeBuoy } from 'lucide-react';
+import { ChevronDown, Mail, LifeBuoy, Compass } from 'lucide-react';
 import { listTickets, sendTicket } from '../lib/extra';
+import { startTour } from '../lib/tour';
 
 const FAQ = [
   {
@@ -17,7 +18,11 @@ const FAQ = [
   },
   {
     q: 'How do I send myself the weekly summary?',
-    a: 'On the dashboard, the "This week" card has WhatsApp, Email and Copy buttons. They use the WhatsApp number and email on Settings > Pharmacy, so add those first. The figures are counted from your own records, not written by AI.',
+    a: 'On the dashboard, press Generate Insights. Under Pill\'s stock list comes the weekly report, with WhatsApp, Email and Copy buttons. They use the WhatsApp number and email on Settings > Pharmacy, so add those first. The figures are counted from your own records, not written by AI.',
+  },
+  {
+    q: 'How is profit worked out?',
+    a: 'Each product has a selling price and a cost price (what you pay for one). Profit is what you sold it for minus what it cost you. Set the cost price when you add or edit a product on Products; marking a restock order received also sets it to what you paid per unit. Sales of a medicine with no cost price are left out of profit, and the dashboard and Sales page say how many.',
   },
   {
     q: 'How do I find a supplier for something I am running out of?',
@@ -29,7 +34,7 @@ const FAQ = [
   },
   {
     q: 'What happens when I mark a restock order as received?',
-    a: 'The ordered quantity is added to that medicine in your inventory, so your stock levels stay correct.',
+    a: 'The ordered quantity is added to that medicine in your inventory, so your stock levels stay correct. Its cost price is set to what you paid per unit, so your profit stays right.',
   },
   {
     q: 'Is my data private?',
@@ -96,6 +101,23 @@ export default function Help() {
           <h1 className="text-2xl font-bold text-gray-900">Help &amp; Support</h1>
           <p className="text-sm text-gray-500">Answers to common questions, or message us</p>
         </div>
+      </div>
+
+      {/* replay the welcome tour (components/Tour.jsx) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-sidebar p-5 text-white shadow-sm">
+        <div className="flex items-center gap-3">
+          <Compass size={22} className="shrink-0 text-lime" />
+          <div>
+            <div className="font-semibold">New to MediFind?</div>
+            <div className="text-sm text-white/70">A one-minute tour of every page and what to do first.</div>
+          </div>
+        </div>
+        <button
+          onClick={startTour}
+          className="rounded-xl bg-lime px-4 py-2 text-sm font-semibold text-sidebar hover:bg-[#cfe85c]"
+        >
+          Show me around
+        </button>
       </div>
 
       <div className="rounded-2xl bg-white p-2 shadow-sm">

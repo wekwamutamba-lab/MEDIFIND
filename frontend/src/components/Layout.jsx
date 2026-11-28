@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { getOverview, getMe, getStaff } from '../lib/api';
 import { AccessContext, tillMayOpen } from '../lib/access';
 import AccessGate from './AccessGate';
+import Tour from './Tour';
 import { globalSearch } from '../lib/extra';
 import {
   Menu,
@@ -131,13 +132,11 @@ export default function Layout() {
             to: '/restock',
           });
         }
-        const pending = (res?.latestOrders ?? []).filter(
-          (o) => o.order_status === 'Pending'
-        ).length;
+        const pending = Number(res?.pendingOrders) || 0;
         if (pending > 0) {
           list.push({
             id: 'pending',
-            title: `${pending} recent orders are pending`,
+            title: `${pending} ${pending === 1 ? 'order is' : 'orders are'} pending`,
             text: 'Review them on the Orders page',
             to: '/orders',
           });
@@ -255,6 +254,7 @@ export default function Layout() {
             <NavLink
               key={item.name}
               to={item.path}
+              data-tour={item.path}
               onClick={closeMenu}
               className={({ isActive }) => linkClass(isActive)}
             >
@@ -272,6 +272,7 @@ export default function Layout() {
 
           <NavLink
             to="/help"
+            data-tour="/help"
             onClick={closeMenu}
             className={({ isActive }) => linkClass(isActive)}
           >
@@ -282,6 +283,7 @@ export default function Layout() {
           {isAdmin && (
             <NavLink
               to="/settings"
+              data-tour="/settings"
               onClick={closeMenu}
               className={({ isActive }) => linkClass(isActive)}
             >
@@ -506,6 +508,9 @@ export default function Layout() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* welcome tour: opens on someone's first login, replayed from Help & Support */}
+      <Tour key={`${me.user?.id}-${isAdmin}`} userId={me.user?.id} isAdmin={isAdmin} />
     </div>
   );
 }

@@ -19,17 +19,19 @@ MediFind gives a pharmacy one place to sell, track stock, and reorder. An AI ass
 
 - **Till (New Sale):** a fast point-of-sale screen. Each sale updates stock, the order and the payment, and records which staff member made it. **Print receipt** prints a receipt with the pharmacy's name, address, contact details and licence number, sized for an 80 mm till printer (it also prints on A4 or saves as a PDF).
 - **Customers on New Sale:** pick an existing customer from the suggestions, or type a new one. A phone number or email that is already saved for someone with a different name is never matched silently: the till operator is asked whether the sale is for that person or whether to use a different number. Phone numbers match however they are written (0772 222 222 or +263772222222), and the customer search finds people by phone too.
-- **Type the sale:** on New Sale, type "2 paracetamol and 1 amoxicillin for Tendai". MediFind finds each medicine in the pharmacy's own products and lists every line for the till operator to check, change or skip before it goes into the sale. The AI only reads the note: it can only pick from the pharmacy's own product list, and the customer's name and any phone number are removed before the note is sent. Without the AI, built-in rules read the note.
+- **Type the sale:** New Sale has one search box. Type a medicine name to find it, or the whole sale, e.g. "2 paracetamol and 1 amoxicillin for Tendai", and press Enter. MediFind finds each medicine in the pharmacy's own products and lists every line for the till operator to check, change or skip before it goes into the sale. The AI only reads the note: it can only pick from the pharmacy's own product list, and the customer's name and any phone number are removed before the note is sent. Without the AI, built-in rules read the note.
 - **Separate pharmacies:** many pharmacies can use MediFind, and each one only ever sees its own products, sales, customers, payments, staff, settings and private suppliers. The server enforces this on every request.
-- **Inventory:** add, edit and search products. Each one is marked In Stock, Low Stock or Out of Stock, using the low-stock level the pharmacy sets on the Settings page. Stock close to expiry is marked Expires soon, and stock past its date is marked Expired.
-- **Dashboard:** orders, revenue, customers, low stock, monthly sales and top sellers.
-- **Weekly summary:** the last 7 days in plain words: sales compared with the week before, best sellers, busiest day, sales by staff member, and what is running out, low or expiring. Buttons send it by WhatsApp or email to the pharmacy's own number and address from Settings, or copy it. Every figure is counted by fixed rules, not AI.
-- **Orders, sales, customers and payments:** searchable lists with filters and pagination.
+- **Inventory:** add, edit and search products, each with a selling price and a cost price (what the pharmacy pays for one). Each one is marked In Stock, Low Stock or Out of Stock, using the low-stock level the pharmacy sets on the Settings page. Stock close to expiry is marked Expires soon, and stock past its date is marked Expired.
+- **Dashboard:** orders, revenue and profit, customers, low stock, monthly sales and top sellers. The dashboard and Sales page refresh on their own every 30 seconds, so new sales show without reloading.
+- **Profit from cost prices:** profit is the selling price minus the cost price of each medicine sold. Each sale keeps what its medicines cost at the time, so a later change to a cost price does not rewrite past profit; older sales use today's cost price. Marking a restock order received sets the product's cost price to what was paid per unit. Sales of a medicine with no cost price are left out of profit, and the pages say how many. Till operators do not see cost prices.
+- **Weekly summary:** part of Pill's results when Generate Insights is pressed. The last 7 days in plain words: sales compared with the week before, profit, best sellers, busiest day, sales by staff member, and what is running out, low or expiring. Buttons send it by WhatsApp or email to the pharmacy's own number and address from Settings, or copy it. Every figure is counted by fixed rules, not AI.
+- **Welcome tour:** the first time someone logs in, a short step-by-step tour opens each page and highlights it in the sidebar (one version for admins, a shorter one for till operators). "Show me around" on Help & Support replays it.
+- **Orders, sales, customers and payments:** searchable lists with filters and pagination. On a narrow screen, wide tables slide left and right so every column can be reached.
 - **Export:** download products, orders, sales, customers and payments as CSV, Excel (.xlsx) or PDF. The file holds every row that matches the search and filters on screen, not just the current page.
 - **Settings (admin):** the pharmacy's profile, the stock rules (low-stock level and how many days before expiry to warn), and changing your password.
 - **Pill, the stock assistant:** lists what will run out first, from how fast each item sold over the last 4 weeks ("Paracetamol: 12 left, sells about 1 a day, so it runs out in about 12 days"), with how much to order for 30 days and a **Find suppliers** button. Low-stock items that are not selling come after, then stock close to expiry. The list and every number in it are worked out by MediFind; the AI writes only the short summary at the top.
 - **AI supplier search:** type "I urgently need 200 insulin". The AI pulls out the medicine, quantity and urgency, and MediFind ranks suppliers by delivery time (when urgent) or price.
-- **Restock orders:** order from a supplier. Marking the order received adds the stock to inventory, exactly once.
+- **Restock orders:** order from a supplier. Marking the order received adds the stock to inventory, exactly once, and updates the product's cost price.
 - **Staff roles and approval:**
   - Admins see everything.
   - Till operators see only New Sale, product lookup, customers and their own sales.
@@ -44,7 +46,7 @@ MediFind gives a pharmacy one place to sell, track stock, and reorder. An AI ass
 | ![Dashboard](docs/screenshots/overview.png) Dashboard | ![Pill insights](docs/screenshots/pill-insights.png) Pill stock insights |
 | ![AI supplier search](docs/screenshots/restock-ai-search.png) AI supplier search | ![New Sale](docs/screenshots/sell.png) Till (New Sale) |
 | ![Products](docs/screenshots/products.png) Inventory | ![Orders](docs/screenshots/orders.png) Orders with "Sold by" |
-| ![Staff](docs/screenshots/staff.png) Staff and approvals | ![Till operator view](docs/screenshots/till-view.png) Till operator's view |
+| ![Staff](docs/screenshots/staff.png) Staff and approvals | ![Till operator view](docs/screenshots/till-view.png) Till operator typing a whole sale |
 | ![Register pharmacy](docs/screenshots/register-pharmacy.png) Register a pharmacy | ![Waiting for approval](docs/screenshots/waiting-approval.png) Waiting for approval |
 
 The screenshots use sample data.
@@ -162,7 +164,7 @@ npm run dev        # app on http://localhost:5173
 
 - **Backend (Render):** create a Web Service from `backend/` with build command `npm install` and start command `npm start`. Add the backend variables above, and set `CORS_ORIGIN` to your Vercel URL.
 - **Frontend (Vercel):** import `frontend/` as a Vite project. Add the three `VITE_` variables, with `VITE_API_URL` pointing to your Render URL plus `/api`.
-- **Database:** an existing database also needs `backend/supabase/migration_roles.sql`, `migration_settings.sql` and `migration_pharmacies.sql` run once, in that order, before the code that uses them is deployed. All three are safe to run more than once.
+- **Database:** an existing database also needs `backend/supabase/migration_roles.sql`, `migration_settings.sql`, `migration_pharmacies.sql`, `migration_order_names.sql` and `migration_cost_price.sql` run once, in that order, before the code that uses them is deployed. All five are safe to run more than once.
 
 ## Documentation
 
@@ -174,7 +176,7 @@ npm run dev        # app on http://localhost:5173
 
 - Supplier catalogue data is entered in MediFind. It is not a live feed from suppliers.
 - Each staff account belongs to one pharmacy. One login cannot yet switch between several branches.
-- Profit figures use an assumed margin and are estimates.
+- Profit is only as good as the cost prices entered. Sales of medicines with no cost price are left out of it.
 - A sale on one till shows on another only after that screen reloads its data.
 - Pill's forecast assumes each item keeps selling at the rate of the last 4 weeks. It does not know about seasons, outbreaks or one-off bulk sales.
 - The weekly summary is sent by pressing a button. It is not yet sent automatically.

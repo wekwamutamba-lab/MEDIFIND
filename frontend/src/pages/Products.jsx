@@ -12,7 +12,7 @@ import { useAccess } from '../lib/access';
 import ExportMenu from '../components/ExportMenu';
 import { fetchAllPages } from '../lib/exportFile';
 
-const EMPTY_FORM = { name: '', category: '', quantity: '', price: '', expiryDate: '', description: '' };
+const EMPTY_FORM = { name: '', category: '', quantity: '', price: '', costPrice: '', expiryDate: '', description: '' };
 const PAGE_SIZE = 10;
 
 export default function Products() {
@@ -72,6 +72,17 @@ export default function Products() {
     { key: 'name', label: 'Medicine', render: (row) => row.name || '—' },
     { key: 'category', label: 'Category', render: (row) => row.category || '—' },
     { key: 'price', label: 'Price', render: (row) => `$${Number(row.price || 0).toFixed(2)}` },
+    // what the pharmacy pays; admins only (the server does not send it to till operators)
+    {
+      key: 'cost',
+      label: 'Cost',
+      render: (row) =>
+        row.cost_price == null ? (
+          <span className="text-xs text-orange-600">Not set</span>
+        ) : (
+          `$${Number(row.cost_price).toFixed(2)}`
+        ),
+    },
     { key: 'stock', label: 'Stock', render: (row) => row.quantity ?? row.stock ?? 0 },
     {
       key: 'expiryDate',
@@ -96,7 +107,7 @@ export default function Products() {
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status || 'In Stock'} /> },
     { key: 'actions', label: 'Actions' },
   ];
-  const columns = isAdmin ? allColumns : allColumns.filter((c) => c.key !== 'actions');
+  const columns = isAdmin ? allColumns : allColumns.filter((c) => c.key !== 'actions' && c.key !== 'cost');
 
   // Export: every product matching the search and category on screen, not just this page
   const buildReport = async () => {
@@ -112,6 +123,7 @@ export default function Products() {
           { label: 'Medicine', value: (r) => r.name || '', width: 28 },
           { label: 'Category', value: (r) => r.category || '', width: 16 },
           { label: 'Price ($)', value: (r) => Number(r.price || 0), money: true },
+          ...(isAdmin ? [{ label: 'Cost ($)', value: (r) => (r.cost_price == null ? '' : Number(r.cost_price)), money: true }] : []),
           { label: 'Stock', value: (r) => Number(r.quantity ?? 0) },
           { label: 'Expires', value: (r) => (r.expiry_date || '').slice(0, 10) },
           { label: 'Status', value: (r) => r.status || 'In Stock', width: 14 },
@@ -130,6 +142,7 @@ export default function Products() {
         category: row.category || '',
         quantity: String(row.quantity ?? row.stock ?? ''),
         price: String(row.price ?? ''),
+        costPrice: row.cost_price == null ? '' : String(row.cost_price),
         expiryDate: (row.expiry_date || row.expiryDate || '').slice(0, 10),
         description: row.description || '',
       });
@@ -273,10 +286,11 @@ export default function Products() {
               <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Price ($)</label>
-              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+              <label className="text-xs font-semibold text-gray-600">Selling price ($)</label>
+              <input type="number" min="0" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
             </div>
           </div>
+          <CostPrice form={form} setForm={setForm} />
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Expiry date</label>
@@ -313,10 +327,11 @@ export default function Products() {
               <input type="number" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-600">Price ($)</label>
-              <input type="number" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+              <label className="text-xs font-semibold text-gray-600">Selling price ($)</label>
+              <input type="number" min="0" step="0.01" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
             </div>
           </div>
+          <CostPrice form={form} setForm={setForm} />
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-600">Expiry date</label>
@@ -342,6 +357,34 @@ export default function Products() {
           <button type="button" onClick={handleDelete} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 font-semibold hover:bg-red-200">Delete</button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// Cost price box with the profit per unit worked out as you type
+function CostPrice({ form, setForm }) {
+  const sell = Number(form.price);
+  const cost = String(form.costPrice ?? '').trim() === '' ? null : Number(form.costPrice);
+  const each = cost != null && Number.isFinite(sell) && Number.isFinite(cost) ? sell - cost : null;
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-semibold text-gray-600">Cost price ($): what you pay for one</label>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="e.g. 1.80"
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-lime"
+        value={form.costPrice}
+        onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
+      />
+      <p className={`text-xs ${each != null && each < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+        {each == null
+          ? 'Used to work out your profit. Leave it empty if you do not know it yet: marking a restock received fills it in.'
+          : each < 0
+            ? `You lose $${(-each).toFixed(2)} on each one sold at this price.`
+            : `Profit $${each.toFixed(2)} on each one${sell > 0 ? ` (${Math.round((each / sell) * 100)}% of the selling price)` : ''}.`}
+      </p>
     </div>
   );
 }

@@ -28,7 +28,7 @@ export async function getProducts(params = {}) {
 }
 
 export async function createProduct(product) {
-  const { name, category, quantity, price, expiryDate, pharmacyId } = product;
+  const { name, category, quantity, price, costPrice, expiryDate, pharmacyId } = product;
   return request('/products', {
     method: 'POST',
     body: JSON.stringify({
@@ -36,6 +36,8 @@ export async function createProduct(product) {
       category,
       quantity: Number(quantity),
       price: Number(price) || 0,
+      // empty = not set (the server leaves that product's sales out of profit)
+      cost_price: costPrice === undefined || String(costPrice).trim() === '' ? null : Number(costPrice),
       expiry_date: expiryDate || null,
       pharmacy_id: pharmacyId || null,
     }),
@@ -43,12 +45,15 @@ export async function createProduct(product) {
 }
 
 export async function updateProduct(id, updates) {
-  const { name, category, quantity, price, expiryDate, pharmacyId } = updates;
+  const { name, category, quantity, price, costPrice, expiryDate, pharmacyId } = updates;
   const fields = {};
   if (name !== undefined) fields.name = name;
   if (category !== undefined) fields.category = category;
   if (quantity !== undefined) fields.quantity = Number(quantity);
   if (price !== undefined) fields.price = Number(price);
+  if (costPrice !== undefined) {
+    fields.cost_price = String(costPrice).trim() === '' ? null : Number(costPrice);
+  }
   if (expiryDate !== undefined) fields.expiry_date = expiryDate || null;
   if (pharmacyId !== undefined) fields.pharmacy_id = pharmacyId;
   return request(`/products/${id}`, {

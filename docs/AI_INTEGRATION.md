@@ -57,7 +57,7 @@ Till operator types a note
 These use **plain arithmetic** on the pharmacy's own records. They were kept away from the AI on purpose, because their numbers must be exact and the same every time.
 
 - **Pill's list** (in `backend/lib/forecast.js`, step 1 above): units sold in the last 28 days divided by 28 gives units a day. Units in stock divided by units a day gives days left. The suggested order covers 30 days of sales. A pharmacy that started selling less than 28 days ago is measured over the days since its first sale (at least 7).
-- **Weekly summary** (`GET /api/reports/weekly`, in `backend/lib/weekly.js`): totals for the last 7 days and the 7 days before, best sellers, busiest day, sales by staff member, and the stock counts. The message is written from a fixed template.
+- **Weekly summary** (`GET /api/reports/weekly`, in `backend/lib/weekly.js`, shown in Pill's results on the dashboard): totals and profit for the last 7 days and the 7 days before, best sellers, busiest day, sales by staff member, and the stock counts. The message is written from a fixed template.
 
 ```
 Pharmacist types a request

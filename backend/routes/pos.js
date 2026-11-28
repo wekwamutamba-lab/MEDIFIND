@@ -6,7 +6,7 @@ import { selectAll } from '../lib/selectAll.js';
 import { askGemini } from '../lib/gemini.js';
 import { readSaleNote, MAX_NOTE } from '../lib/saleNote.js';
 import { resolveCustomer, WALK_IN } from '../lib/customers.js';
-import { insertOrder } from '../lib/data.js';
+import { insertOrder, costPrice } from '../lib/data.js';
 import { sendError } from '../lib/errors.js';
 
 const supabase = sb.supabase || sb.default;
@@ -114,6 +114,7 @@ router.post('/checkout', async (req, res) => {
         const p = pMap.get(id);
         const price = Number(p.price) || 0;
         const total = round2(price * q);
+        const unitCost = costPrice(p);
 
         const { data: order, error: oe } = await insertOrder(req.pharmacy, {
           customer_id: customer.id,
@@ -121,6 +122,8 @@ router.post('/checkout', async (req, res) => {
           product_name: p.name,
           quantity: q,
           total,
+          // what these units cost the pharmacy, kept with the sale for profit
+          cost_total: unitCost == null ? null : round2(unitCost * q),
           order_date: now,
           status: 'Completed',
           payment_status: 'Paid',

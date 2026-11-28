@@ -388,7 +388,13 @@ export default function Restock() {
 
       {/* Restock orders */}
       <div className="space-y-4 pt-2">
-        <h2 className="text-lg font-bold text-sidebar">Restock Orders</h2>
+        <div>
+          <h2 className="text-lg font-bold text-sidebar">Restock Orders</h2>
+          <p className="text-xs text-gray-500">
+            Mark received adds the stock and sets the product&apos;s cost price to what you paid per
+            unit, so profit stays up to date.
+          </p>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl bg-sidebar p-5 text-white">

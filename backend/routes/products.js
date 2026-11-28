@@ -2,7 +2,23 @@ import { Router } from 'express';
 import { selectAll } from '../lib/selectAll.js';
 import { getStockRules, stockStatus, expiryFlags } from '../lib/stockRules.js';
 import { sendError } from '../lib/errors.js';
+import { isAdmin } from '../lib/auth.js';
+import { missingColumn } from '../lib/data.js';
 const router = Router();
+
+// Products are saved with a cost price once migration_cost_price.sql has been run.
+// Before that the column is missing: a product without a cost price is still saved,
+// and one with a cost price gets a clear message instead of a server error.
+const NEEDS_COST_SQL =
+  'The cost price cannot be saved yet. In Supabase, run backend/supabase/migration_cost_price.sql once, then save again.';
+
+async function saveProduct(run, fields) {
+  const first = await run(fields);
+  if (!missingColumn(first.error, 'cost_price')) return first;
+  if (fields.cost_price != null) return { error: { status: 400, message: NEEDS_COST_SQL } };
+  const { cost_price: _skip, ...rest } = fields;
+  return run(rest);
+}
 
 // normalise DB status to contract capitalised values
 const normStatus = (s) => {
@@ -66,6 +82,8 @@ router.get('/', async (req, res) => {
       category: p.category,
       quantity: p.quantity,
       price: p.price,
+      // what the pharmacy pays: admins only, till operators do not see it
+      ...(isAdmin(req) ? { cost_price: p.cost_price ?? null } : {}),
       expiry_date: p.expiry_date,
       pharmacy_id: p.pharmacy_id,
       ...withStatus({ quantity: p.quantity, expiry_date: p.expiry_date }, rules),
@@ -101,6 +119,16 @@ function readProductFields(body = {}) {
     if (!Number.isFinite(pr) || pr < 0) return { error: 'Price must be 0 or more' };
     fields.price = Math.round(pr * 100) / 100;
   }
+  if (body.cost_price !== undefined) {
+    // empty means "not set"; profit then leaves this product's sales out
+    if (body.cost_price === null || String(body.cost_price).trim() === '') {
+      fields.cost_price = null;
+    } else {
+      const c = Number(body.cost_price);
+      if (!Number.isFinite(c) || c < 0) return { error: 'Cost price must be 0 or more' };
+      fields.cost_price = Math.round(c * 100) / 100;
+    }
+  }
   if (body.category !== undefined) {
     fields.category = String(body.category || '').trim() || 'General';
   }
@@ -114,7 +142,7 @@ function readProductFields(body = {}) {
   return { fields };
 }
 
-// POST /api/products – name and quantity required; price, category, expiry_date optional
+// POST /api/products – name and quantity required; price, cost_price, category, expiry_date optional
 router.post('/', async (req, res) => {
   try {
     if (!req.body?.name || req.body?.quantity === undefined) {
@@ -130,7 +158,10 @@ router.post('/', async (req, res) => {
       expiry_date: null,
       ...fields,
     };
-    const { data, error } = await req.pharmacy.insert('products', row).select().single();
+    const { data, error } = await saveProduct(
+      (r) => req.pharmacy.insert('products', r).select().single(),
+      row
+    );
     if (error) throw error;
     res.status(201).json(withStatus(data, await getStockRules(req.pharmacy.id)));
   } catch (err) {
@@ -145,8 +176,10 @@ router.put('/:id', async (req, res) => {
     if (invalid) return res.status(400).json({ error: invalid });
     if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
 
-    const { data, error } = await req.pharmacy
-      .update('products', updates).eq('id', req.params.id).select().maybeSingle();
+    const { data, error } = await saveProduct(
+      (u) => req.pharmacy.update('products', u).eq('id', req.params.id).select().maybeSingle(),
+      updates
+    );
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Product not found' });
     res.json(withStatus(data, await getStockRules(req.pharmacy.id)));

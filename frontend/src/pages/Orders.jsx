@@ -72,7 +72,20 @@ export default function Orders() {
   const { isAdmin } = useAccess();
 
   const allColumns = [
-    { key: 'id', label: 'Order ID', render: (row) => row.id || '—' },
+    // the first 8 characters are enough to tell orders apart (and to search for);
+    // the full ID shows on hover and in the Update Order form
+    {
+      key: 'id',
+      label: 'Order ID',
+      render: (row) =>
+        row.id ? (
+          <span className="font-mono text-xs text-gray-500" title={String(row.id)}>
+            #{String(row.id).slice(0, 8)}
+          </span>
+        ) : (
+          '—'
+        ),
+    },
     { key: 'customerName', label: 'Customer', render: (row) => row.customer_name || row.customerName || '—' },
     { key: 'medicine', label: 'Medicine', render: (row) => row.product_name || row.medicine || '—' },
     { key: 'quantity', label: 'Qty', render: (row) => row.quantity ?? 0 },
@@ -173,7 +186,7 @@ export default function Orders() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="Total Orders" value={stats?.total ?? 0} sublabel="All orders" Icon={OrderIcon} variant="green" />
         <StatCard title="Pending" value={stats?.pending ?? 0} sublabel="Awaiting fulfillment" Icon={PendingIcon} />
         <StatCard title="Total Revenue" value={`$${revenue.toFixed(2)}`} sublabel="Excluding cancelled" Icon={MoneyIcon} />

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { loadOrders, insertOrder, normOrderStatus, normPaymentStatus } from '../lib/data.js';
+import { loadOrders, insertOrder, costPrice, normOrderStatus, normPaymentStatus } from '../lib/data.js';
 import { adjustStock, restoreStock, exactIlike } from '../lib/stock.js';
 import { isAdmin, staffName } from '../lib/auth.js';
 import { sendError } from '../lib/errors.js';
@@ -99,6 +99,7 @@ router.post('/', async (req, res) => {
       }
 
       const total = Math.round(quantity * Number(product.price || 0) * 100) / 100;
+      const unitCost = costPrice(product);
       const now = new Date().toISOString();
       const { data: order, error: oe } = await insertOrder(req.pharmacy, {
         customer_id: customerId,
@@ -106,6 +107,7 @@ router.post('/', async (req, res) => {
         product_name: product.name,
         quantity,
         total,
+        cost_total: unitCost == null ? null : Math.round(quantity * unitCost * 100) / 100,
         order_date: now,
         status: 'Pending',
         payment_status: 'Pending',

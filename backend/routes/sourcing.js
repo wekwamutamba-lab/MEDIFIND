@@ -224,6 +224,19 @@ router.patch('/restock/:id/receive', async (req, res) => {
       await req.pharmacy.update('restock_orders', { status: order.status }).eq('id', order.id);
       throw err;
     }
+
+    // The product's cost price becomes what the supplier charged per unit, so profit
+    // follows the latest price paid. It can still be changed on the Products page.
+    // Stock is already in, so a failure here (e.g. migration_cost_price.sql not run
+    // yet) is only logged.
+    const qty = Number(order.quantity) || 0;
+    const unitCost = qty > 0 ? Math.round((Number(order.total) / qty) * 100) / 100 : NaN;
+    if (Number.isFinite(unitCost) && unitCost >= 0) {
+      const { error: ce } = await req.pharmacy
+        .update('products', { cost_price: unitCost })
+        .eq('id', prods[0].id);
+      if (ce) console.warn('Could not set the cost price from a restock:', ce.message);
+    }
     res.json(claimed[0]);
   } catch (err) {
     sendError(res, err);

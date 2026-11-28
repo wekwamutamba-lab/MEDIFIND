@@ -32,11 +32,14 @@ export default function DataTable({
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+      {/* Wide tables scroll sideways inside the box (like Restock Orders), so every
+          column can be reached without zooming out; the page buttons stay put below */}
+      <div className="overflow-x-auto">
       <table className="w-full text-sm text-left">
         <thead className="bg-gray-50 text-gray-500">
           <tr>
             {columns.map((col) => (
-              <th key={col.key} className="px-4 py-3 font-medium" scope="col">
+              <th key={col.key} className="whitespace-nowrap px-4 py-3 font-medium" scope="col">
                 {col.label}
               </th>
             ))}
@@ -79,7 +82,7 @@ export default function DataTable({
                   }
                   const value = col.render ? col.render(row) : row[col.key];
                   return (
-                    <td key={col.key} className="px-4 py-3 text-gray-700">
+                    <td key={col.key} className="whitespace-nowrap px-4 py-3 text-gray-700">
                       {value}
                     </td>
                   );
@@ -89,6 +92,7 @@ export default function DataTable({
           )}
         </tbody>
       </table>
+      </div>
       <div className="border-t border-gray-200 bg-white px-4 py-3 flex items-center justify-between text-xs text-gray-500">
         <div>
           Showing <b>{Math.min((currentPage - 1) * pageSize + 1, total)}</b> to{' '}

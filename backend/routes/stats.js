@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { loadOrders, byMonth } from '../lib/data.js';
+import { loadOrders, byMonth, profitOf } from '../lib/data.js';
 import { getStockRules } from '../lib/stockRules.js';
 import { localParts } from '../lib/time.js';
 import { sendError } from '../lib/errors.js';
@@ -14,6 +14,7 @@ router.get('/overview', async (req, res) => {
     const orders = await loadOrders(req.pharmacy);
     const valid = orders.filter((o) => o.order_status !== 'Cancelled');
     const revenue = valid.reduce((s, o) => s + o.total, 0);
+    const money = profitOf(valid);
 
     const { count } = await req.pharmacy
       .select('customers', '*', { count: 'exact', head: true });
@@ -35,13 +36,16 @@ router.get('/overview', async (req, res) => {
 
     res.json({
       totalRevenue: round2(revenue),
-      totalProfit: round2(revenue * 0.3),
+      // revenue minus the cost price of the medicines sold (see profitOf)
+      totalProfit: money.profit,
+      salesWithoutCost: money.missing,
       totalCustomers: count || 0,
       totalOrders: orders.length,
       lowStock: lowStock || 0,
       salesByMonth: byMonth(orders),
       topMedicines,
-      latestOrders: orders.slice(0, 5),
+      // for the bell at the top (Layout.jsx)
+      pendingOrders: orders.filter((o) => o.order_status === 'Pending').length,
     });
   } catch (err) {
     sendError(res, err);
@@ -54,7 +58,7 @@ router.get('/sales', async (req, res) => {
     const orders = await loadOrders(req.pharmacy);
     const valid = orders.filter((o) => o.order_status !== 'Cancelled');
     const revenue = valid.reduce((s, o) => s + o.total, 0);
-    const profit = revenue * 0.3;
+    const money = profitOf(valid);
 
     // Busy times by day and hour in the pharmacy's time zone. Orders saved with a
     // date only have no time of day, so they are left out instead of all showing at midnight.
@@ -87,8 +91,12 @@ router.get('/sales', async (req, res) => {
 
     res.json({
       totalRevenue: round2(revenue),
-      totalProfit: round2(profit),
-      totalCost: round2(revenue - profit),
+      // From cost prices. Sales whose medicine has no cost price are left out of
+      // both and counted in salesWithoutCost.
+      totalProfit: money.profit,
+      totalCost: money.cost,
+      salesWithoutCost: money.missing,
+      salesCount: valid.length,
       avgOrderValue: valid.length ? round2(revenue / valid.length) : 0,
       revenueByMonth: byMonth(orders),
       ordersByTime,

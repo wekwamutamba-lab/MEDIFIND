@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS products (
   pharmacy_id      UUID REFERENCES pharmacies(id) ON DELETE CASCADE,
   created_at       TIMESTAMPTZ DEFAULT now(),
   price            NUMERIC DEFAULT 0,
-  expiry_date      DATE
+  expiry_date      DATE,
+  cost_price       NUMERIC               -- what one unit costs the pharmacy (for profit)
 );
 
 -- --------------------------------------------------------------
@@ -88,7 +89,8 @@ CREATE TABLE IF NOT EXISTS orders (
   order_date      TIMESTAMPTZ DEFAULT now(),
   payment_status  TEXT DEFAULT 'Pending',
   cashier_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- who made the sale
-  cashier_name    TEXT
+  cashier_name    TEXT,
+  cost_total      NUMERIC               -- what the medicines in this sale cost, saved at the time
 );
 
 -- --------------------------------------------------------------
@@ -224,7 +226,8 @@ SELECT
   END AS status,
   ph.name AS pharmacy_name,
   ph.lat  AS pharmacy_lat,
-  ph.lng  AS pharmacy_lng
+  ph.lng  AS pharmacy_lng,
+  p.cost_price
 FROM products p
   LEFT JOIN pharmacies ph ON ph.id = p.pharmacy_id;
 

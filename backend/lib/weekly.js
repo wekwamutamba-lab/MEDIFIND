@@ -18,10 +18,14 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const saleKey = (o) => `${o.order_date}|${o.customer_id}`;
 
 function sum(orders) {
+  // profit only from medicines with a cost price (o.cost, see loadOrders)
+  const costed = orders.filter((o) => o.cost != null);
   return {
     revenue: round2(orders.reduce((s, o) => s + o.total, 0)),
     sales: new Set(orders.map(saleKey)).size,
     units: orders.reduce((s, o) => s + (Number(o.quantity) || 0), 0),
+    profit: round2(costed.reduce((s, o) => s + o.total - o.cost, 0)),
+    without_cost: orders.length - costed.length,
   };
 }
 
@@ -79,6 +83,12 @@ export function weeklySummary({ orders, forecast, stock, pharmacy, now = new Dat
     else if (change < 0) compare = ` That is ${-change}% less than the week before (${money(lastWeek.revenue)}).`;
     else compare = ' The same as the week before.';
     lines.push(`Sales: ${money(thisWeek.revenue)} from ${plural(thisWeek.sales, 'sale')}.${compare}`);
+    if (thisWeek.without_cost < week.length) {
+      const left = thisWeek.without_cost
+        ? ` ${plural(thisWeek.without_cost, 'item')} sold with no cost price ${thisWeek.without_cost === 1 ? 'is' : 'are'} left out.`
+        : '';
+      lines.push(`Profit: ${money(thisWeek.profit)}.${left}`);
+    }
     if (best.length) lines.push(`Best sellers: ${best.map((b) => `${b.name} (${b.quantity})`).join(', ')}.`);
     if (busiest) lines.push(`Busiest day: ${FULL_DAY[busiest[0]] || busiest[0]}.`);
     if (cashiers.length > 1) lines.push(`By staff: ${cashiers.map((c) => `${c.name} ${money(c.revenue)}`).join(', ')}.`);
